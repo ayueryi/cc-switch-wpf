@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 
@@ -8,15 +8,22 @@ public class ProfileDto
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
-    [JsonPropertyName("description")] public string? Description { get; set; }
-    [JsonPropertyName("is_active")] public bool IsActive { get; set; }
-    [JsonPropertyName("created_at")] public long CreatedAt { get; set; }
+    [JsonPropertyName("payload")] public JsonElement Payload { get; set; }
+    [JsonPropertyName("createdAt")] public long? CreatedAt { get; set; }
+    [JsonPropertyName("updatedAt")] public long? UpdatedAt { get; set; }
+}
+
+public class CurrentProfileIdsDto
+{
+    [JsonPropertyName("claude")] public string? Claude { get; set; }
+    [JsonPropertyName("claudeDesktop")] public string? ClaudeDesktop { get; set; }
+    [JsonPropertyName("codex")] public string? Codex { get; set; }
 }
 
 public class ProfilesResponseDto
 {
     [JsonPropertyName("profiles")] public List<ProfileDto> Profiles { get; set; } = new();
-    [JsonPropertyName("active_id")] public string? ActiveId { get; set; }
+    [JsonPropertyName("currentIds")] public CurrentProfileIdsDto CurrentIds { get; set; } = new();
 }
 
 public class ProfileService
@@ -31,92 +38,133 @@ public class ProfileService
 
     private void InitializeTable()
     {
-        using var conn = _dbService.CreateConnection();
-        conn.Execute(@"
-            CREATE TABLE IF NOT EXISTS profiles (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT,
-                is_active INTEGER DEFAULT 0,
-                created_at INTEGER NOT NULL,
-                data_json TEXT NOT NULL
-            );
-        ");
+        try
+        {
+            using var conn = _dbService.CreateConnection();
+            conn.Execute(@"
+                CREATE TABLE IF NOT EXISTS profiles (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    payload TEXT NOT NULL DEFAULT '{}',
+                    sort_order INTEGER,
+                    created_at INTEGER,
+                    updated_at INTEGER
+                );
+            ");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.Instance.Error("ProfileService", $"InitializeTable failed: {ex.Message}", ex);
+        }
     }
 
     public async Task<ProfilesResponseDto> ListProfilesAsync()
     {
-        using var conn = _dbService.CreateConnection();
-        var rows = await conn.QueryAsync(
-            "SELECT id, name, description, is_active, created_at FROM profiles ORDER BY created_at ASC"
-        );
-
-        var list = new List<ProfileDto>();
-        string? activeId = null;
-
-        foreach (var r in rows)
+        try
         {
-            var active = r.is_active != null && (long)r.is_active == 1;
-            var id = (string)r.id;
-            if (active) activeId = id;
+            using var conn = _dbService.CreateConnection();
+            var rows = await conn.QueryAsync(
+                "SELECT id, name, payload, created_at, updated_at FROM profiles ORDER BY created_at ASC"
+            );
 
-            list.Add(new ProfileDto
+            var list = new List<ProfileDto>();
+            foreach (var r in rows)
             {
-                Id = id,
-                Name = (string)r.name,
-                Description = (string?)r.description,
-                IsActive = active,
-                CreatedAt = (long)r.created_at
-            });
-        }
+                JsonElement payloadElement;
+                try
+                {
+                    var payloadStr = (string?)r.payload ?? "{}";
+                    payloadElement = JsonDocument.Parse(payloadStr).RootElement.Clone();
+                }
+                catch
+                {
+                    payloadElement = JsonDocument.Parse("{}").RootElement.Clone();
+                }
 
-        return new ProfilesResponseDto
+                list.Add(new ProfileDto
+                {
+                    Id = (string)r.id,
+                    Name = (string)r.name,
+                    Payload = payloadElement,
+                    CreatedAt = r.created_at != null ? (long?)r.created_at : null,
+                    UpdatedAt = r.updated_at != null ? (long?)r.updated_at : null
+                });
+            }
+
+            return new ProfilesResponseDto
+            {
+                Profiles = list,
+                CurrentIds = new CurrentProfileIdsDto()
+            };
+        }
+        catch (Exception ex)
         {
-            Profiles = list,
-            ActiveId = activeId
-        };
+            LoggerService.Instance.Error("ProfileService", $"ListProfilesAsync error: {ex.Message}", ex);
+            return new ProfilesResponseDto();
+        }
     }
 
-    public async Task<ProfileDto> CreateProfileAsync(string name, string? description)
+    public async Task<ProfileDto> CreateProfileAsync(string name, string? scope)
     {
         var id = Guid.NewGuid().ToString();
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var emptyPayload = "{\"providers\":{},\"mcp\":{},\"skills\":{},\"prompts\":{}}";
 
         using var conn = _dbService.CreateConnection();
-        var providers = await conn.QueryAsync("SELECT * FROM providers");
-        var dataJson = JsonSerializer.Serialize(providers);
-
         await conn.ExecuteAsync(@"
-            INSERT INTO profiles (id, name, description, is_active, created_at, data_json)
-            VALUES (@id, @name, @description, 0, @now, @dataJson)",
-            new { id, name, description, now, dataJson }
+            INSERT INTO profiles (id, name, payload, sort_order, created_at, updated_at)
+            VALUES (@id, @name, @emptyPayload, 0, @now, @now)",
+            new { id, name, emptyPayload, now }
         );
 
         return new ProfileDto
         {
             Id = id,
             Name = name,
-            Description = description,
-            IsActive = false,
-            CreatedAt = now
+            Payload = JsonDocument.Parse(emptyPayload).RootElement.Clone(),
+            CreatedAt = now,
+            UpdatedAt = now
         };
     }
 
-    public async Task<bool> ApplyProfileAsync(string id)
+    public async Task<List<string>> ApplyProfileAsync(string id)
     {
-        using var conn = _dbService.CreateConnection();
-        await conn.ExecuteAsync("UPDATE profiles SET is_active = CASE WHEN id = @id THEN 1 ELSE 0 END", new { id });
-        return true;
+        return new List<string>();
     }
 
-    public async Task<bool> UpdateProfileAsync(string id, string name, string? description)
+    public async Task<ProfileDto?> UpdateProfileAsync(string id, string? name)
     {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         using var conn = _dbService.CreateConnection();
-        await conn.ExecuteAsync(
-            "UPDATE profiles SET name = @name, description = @description WHERE id = @id",
-            new { id, name, description }
-        );
-        return true;
+        if (!string.IsNullOrEmpty(name))
+        {
+            await conn.ExecuteAsync(
+                "UPDATE profiles SET name = @name, updated_at = @now WHERE id = @id",
+                new { id, name, now }
+            );
+        }
+        var row = await conn.QueryFirstOrDefaultAsync("SELECT * FROM profiles WHERE id = @id", new { id });
+        if (row == null) return null;
+
+        JsonElement payloadElement;
+        try
+        {
+            var payloadStr = (string?)row.payload ?? "{}";
+            payloadElement = JsonDocument.Parse(payloadStr).RootElement.Clone();
+        }
+        catch
+        {
+            payloadElement = JsonDocument.Parse("{}").RootElement.Clone();
+        }
+
+        return new ProfileDto
+        {
+            Id = (string)row.id,
+            Name = (string)row.name,
+            Payload = payloadElement,
+            CreatedAt = row.created_at != null ? (long?)row.created_at : null,
+            UpdatedAt = row.updated_at != null ? (long?)row.updated_at : null
+        };
     }
 
     public async Task<bool> DeleteProfileAsync(string id)
@@ -128,8 +176,6 @@ public class ProfileService
 
     public async Task<bool> ClearCurrentProfileAsync()
     {
-        using var conn = _dbService.CreateConnection();
-        await conn.ExecuteAsync("UPDATE profiles SET is_active = 0");
         return true;
     }
 }

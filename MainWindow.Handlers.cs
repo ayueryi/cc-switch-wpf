@@ -13,7 +13,7 @@ public partial class MainWindow
     {
         RegisterCoreHandlers(dispatcher);
         RegisterProfileAndStreamHandlers(dispatcher);
-        RegisterCloudAndSkillHandlers(dispatcher);
+        RegisterCloudHandlers(dispatcher);
         RegisterSystemAndWindowHandlers(dispatcher);
     }
 
@@ -45,8 +45,36 @@ public partial class MainWindow
             var id = args.GetProperty("id").GetString() ?? "";
             var res = await _providerService.SetCurrentProviderAsync(app, id);
             _ = _trayService?.RefreshMenuAsync();
+            dispatcher.EmitEvent("provider-switched", new
+            {
+                appType = app,
+                providerId = id
+            });
             return res;
         });
+        dispatcher.Register("switch_provider", async args =>
+        {
+            var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
+            var id = args.GetProperty("id").GetString() ?? "";
+            var res = await _providerService.SetCurrentProviderAsync(app, id);
+            _ = _trayService?.RefreshMenuAsync();
+            dispatcher.EmitEvent("provider-switched", new
+            {
+                appType = app,
+                providerId = id
+            });
+            return new { warnings = Array.Empty<string>() };
+        });
+        dispatcher.Register("import_default_config", args => true);
+        dispatcher.Register("update_tray_menu", args =>
+        {
+            _ = _trayService?.RefreshMenuAsync();
+            return true;
+        });
+        dispatcher.Register("update_providers_sort_order", args => true);
+        dispatcher.Register("remove_provider_from_live_config", args => true);
+        dispatcher.Register("import_opencode_providers_from_live", args => 0);
+        dispatcher.Register("get_opencode_live_provider_ids", args => new List<string>());
         dispatcher.Register("save_provider", async args =>
         {
             var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
@@ -103,33 +131,6 @@ public partial class MainWindow
             return await _mcpService.ToggleMcpAppAsync(id, app, enabled);
         });
 
-        // 4. Prompts
-        dispatcher.Register("get_prompts", async args =>
-        {
-            var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
-            return await _promptService.GetPromptsAsync(app);
-        });
-        dispatcher.Register("upsert_prompt", async args =>
-        {
-            var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
-            var json = args.GetProperty("prompt").GetRawText();
-            var prompt = JsonSerializer.Deserialize<PromptDto>(json);
-            if (prompt != null) return await _promptService.UpsertPromptAsync(app, prompt);
-            return false;
-        });
-        dispatcher.Register("delete_prompt", async args =>
-        {
-            var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
-            var id = args.GetProperty("id").GetString() ?? "";
-            return await _promptService.DeletePromptAsync(app, id);
-        });
-        dispatcher.Register("enable_prompt", async args =>
-        {
-            var app = args.TryGetProperty("app", out var a) ? a.GetString() ?? "claude" : "claude";
-            var id = args.GetProperty("id").GetString() ?? "";
-            var enabled = args.TryGetProperty("enabled", out var e) && e.GetBoolean();
-            return await _promptService.EnablePromptAsync(app, id, enabled);
-        });
     }
 
     private void RegisterProfileAndStreamHandlers(IpcDispatcher dispatcher)
@@ -140,8 +141,8 @@ public partial class MainWindow
         dispatcher.Register("create_profile", async args =>
         {
             var name = args.GetProperty("name").GetString() ?? "New Profile";
-            var desc = args.TryGetProperty("description", out var d) ? d.GetString() : null;
-            return await _profileService.CreateProfileAsync(name, desc);
+            var scope = args.TryGetProperty("scope", out var s) ? s.GetString() : null;
+            return await _profileService.CreateProfileAsync(name, scope);
         });
         dispatcher.Register("apply_profile", async args =>
         {
@@ -151,9 +152,8 @@ public partial class MainWindow
         dispatcher.Register("update_profile", async args =>
         {
             var id = args.GetProperty("id").GetString() ?? "";
-            var name = args.GetProperty("name").GetString() ?? "";
-            var desc = args.TryGetProperty("description", out var d) ? d.GetString() : null;
-            return await _profileService.UpdateProfileAsync(id, name, desc);
+            var name = args.TryGetProperty("name", out var np) ? np.GetString() : null;
+            return await _profileService.UpdateProfileAsync(id, name);
         });
         dispatcher.Register("delete_profile", async args =>
         {
@@ -201,35 +201,8 @@ public partial class MainWindow
         dispatcher.Register("update_circuit_breaker_config", args => true);
     }
 
-    private void RegisterCloudAndSkillHandlers(IpcDispatcher dispatcher)
+    private void RegisterCloudHandlers(IpcDispatcher dispatcher)
     {
-        // Skills
-        dispatcher.Register("get_skills", async args => await _skillService.GetInstalledSkillsAsync());
-        dispatcher.Register("get_installed_skills", async args => await _skillService.GetInstalledSkillsAsync());
-        dispatcher.Register("discover_available_skills", args => _skillMarketService.DiscoverAvailableSkills());
-        dispatcher.Register("search_skills_sh", args => _skillMarketService.DiscoverAvailableSkills());
-        dispatcher.Register("install_skill", async args =>
-        {
-            var id = args.GetProperty("id").GetString() ?? "";
-            var name = args.TryGetProperty("name", out var n) ? n.GetString() ?? id : id;
-            var desc = args.TryGetProperty("description", out var d) ? d.GetString() : null;
-            var ro = args.TryGetProperty("repoOwner", out var o) ? o.GetString() : null;
-            var rn = args.TryGetProperty("repoName", out var r) ? r.GetString() : null;
-            return await _skillMarketService.InstallSkillAsync(id, name, desc, ro, rn);
-        });
-        dispatcher.Register("uninstall_skill", async args =>
-        {
-            var id = args.GetProperty("id").GetString() ?? "";
-            return await _skillMarketService.UninstallSkillAsync(id);
-        });
-        dispatcher.Register("toggle_skill_app", async args =>
-        {
-            var id = args.GetProperty("id").GetString() ?? "";
-            var app = args.GetProperty("app").GetString() ?? "claude";
-            var en = args.GetProperty("enabled").GetBoolean();
-            return await _skillMarketService.ToggleSkillAppAsync(id, app, en);
-        });
-
         // Cloud & Backup
         dispatcher.Register("webdav_test_connection", async args =>
         {
@@ -335,7 +308,20 @@ public partial class MainWindow
             return _sysService.CheckEnvConflicts(app);
         });
         dispatcher.Register("probe_tool_installations", args => _sysService.ProbeToolInstallations());
-        dispatcher.Register("get_tool_versions", args => _sysService.ProbeToolInstallations());
+        dispatcher.Register("get_tool_versions", args =>
+        {
+            List<string>? tools = null;
+            if (args.TryGetProperty("tools", out var tProp) && tProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                tools = new List<string>();
+                foreach (var item in tProp.EnumerateArray())
+                {
+                    var s = item.GetString();
+                    if (!string.IsNullOrEmpty(s)) tools.Add(s);
+                }
+            }
+            return _sysService.GetToolVersions(tools);
+        });
         dispatcher.Register("get_app_config_path", args => Path.Combine(SystemIntegrationService.GetConfigDir(), "config.json"));
         dispatcher.Register("get_config_dir", args => SystemIntegrationService.GetConfigDir());
         dispatcher.Register("get_claude_code_config_path", args => Path.Combine(LiveConfigService.GetClaudeDir(), "settings.json"));

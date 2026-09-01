@@ -162,21 +162,59 @@ public class UsageService
         _dbService = dbService;
     }
 
+    private static string FreshInputSql(string alias = "")
+    {
+        string prefix = string.IsNullOrEmpty(alias) ? "" : $"{alias}.";
+        return $@"CASE 
+            WHEN {prefix}input_token_semantics = 2 THEN {prefix}input_tokens 
+            WHEN {prefix}app_type IN ('codex', 'gemini', 'grokbuild') 
+                 AND {prefix}input_tokens >= ({prefix}cache_read_tokens + {prefix}cache_creation_tokens) 
+            THEN ({prefix}input_tokens - {prefix}cache_read_tokens - {prefix}cache_creation_tokens) 
+            WHEN {prefix}app_type IN ('codex', 'gemini', 'grokbuild') 
+                 AND {prefix}input_tokens >= {prefix}cache_read_tokens 
+            THEN ({prefix}input_tokens - {prefix}cache_read_tokens) 
+            ELSE {prefix}input_tokens END";
+    }
+
+    private static string EffectiveUsageLogFilter(string alias = "")
+    {
+        string prefix = string.IsNullOrEmpty(alias) ? "" : $"{alias}.";
+        return $@"NOT (
+            COALESCE({prefix}data_source, 'proxy') IN ('session_log', 'codex_session', 'gemini_session', 'opencode_session', 'antigravity_session', 'cpa_session')
+            AND EXISTS (
+                SELECT 1
+                FROM proxy_request_logs proxy_dedup
+                WHERE COALESCE(proxy_dedup.data_source, 'proxy') = 'proxy'
+                  AND proxy_dedup.app_type = {prefix}app_type
+                  AND proxy_dedup.status_code >= 200
+                  AND proxy_dedup.status_code < 300
+                  AND proxy_dedup.input_tokens = {prefix}input_tokens
+                  AND proxy_dedup.output_tokens = {prefix}output_tokens
+                  AND proxy_dedup.cache_read_tokens = {prefix}cache_read_tokens
+                  AND proxy_dedup.created_at BETWEEN ({prefix}created_at - 180) AND ({prefix}created_at + 180)
+            )
+        )";
+    }
+
+
+
     public async Task<UsageSummaryDto> GetUsageSummaryAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
         using var conn = _dbService.CreateConnection();
         
-        var sql = @"
+        string freshInput = FreshInputSql();
+        string dedupFilter = EffectiveUsageLogFilter();
+        var sql = $@"
             SELECT 
                 COUNT(1) AS TotalRequests,
-                COALESCE(SUM(input_tokens), 0) AS TotalInputTokens,
+                COALESCE(SUM(CAST(total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
+                COALESCE(SUM({freshInput}), 0) AS TotalInputTokens,
                 COALESCE(SUM(output_tokens), 0) AS TotalOutputTokens,
                 COALESCE(SUM(cache_creation_tokens), 0) AS TotalCacheCreationTokens,
                 COALESCE(SUM(cache_read_tokens), 0) AS TotalCacheReadTokens,
-                COALESCE(SUM(CAST(total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
                 COALESCE(SUM(CASE WHEN status_code >= 200 AND status_code < 400 THEN 1 ELSE 0 END), 0) AS SuccessRequests
             FROM proxy_request_logs
-            WHERE 1=1
+            WHERE {dedupFilter}
         ";
 
         if (startDate.HasValue) sql += " AND created_at >= @startDate";
@@ -246,18 +284,20 @@ public class UsageService
     public async Task<List<DailyStatsDto>> GetUsageTrendsAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
         using var conn = _dbService.CreateConnection();
-        var sql = @"
+        string freshInput = FreshInputSql();
+        string dedupFilter = EffectiveUsageLogFilter();
+        var sql = $@"
             SELECT 
                 strftime('%Y-%m-%d', datetime(created_at, 'unixepoch', 'localtime')) AS DateStr,
                 COUNT(1) AS RequestCount,
                 COALESCE(SUM(CAST(total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
-                COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS TotalTokens,
-                COALESCE(SUM(input_tokens), 0) AS TotalInputTokens,
+                COALESCE(SUM({freshInput} + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS TotalTokens,
+                COALESCE(SUM({freshInput}), 0) AS TotalInputTokens,
                 COALESCE(SUM(output_tokens), 0) AS TotalOutputTokens,
                 COALESCE(SUM(cache_creation_tokens), 0) AS TotalCacheCreationTokens,
                 COALESCE(SUM(cache_read_tokens), 0) AS TotalCacheReadTokens
             FROM proxy_request_logs
-            WHERE 1=1
+            WHERE {dedupFilter}
         ";
 
         if (startDate.HasValue) sql += " AND created_at >= @startDate";
@@ -297,18 +337,20 @@ public class UsageService
     public async Task<List<ProviderStatsDto>> GetProviderStatsAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
         using var conn = _dbService.CreateConnection();
-        var sql = @"
+        string freshInput = FreshInputSql("l");
+        string dedupFilter = EffectiveUsageLogFilter("l");
+        var sql = $@"
             SELECT 
                 l.provider_id AS ProviderId,
                 COALESCE(p.name, l.provider_id) AS ProviderName,
                 COUNT(1) AS RequestCount,
-                COALESCE(SUM(l.input_tokens + l.output_tokens + l.cache_creation_tokens + l.cache_read_tokens), 0) AS TotalTokens,
+                COALESCE(SUM({freshInput} + l.output_tokens + l.cache_creation_tokens + l.cache_read_tokens), 0) AS TotalTokens,
                 COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
                 COALESCE(SUM(CASE WHEN l.status_code >= 200 AND l.status_code < 400 THEN 1 ELSE 0 END), 0) AS SuccessReq,
                 COALESCE(AVG(l.latency_ms), 0) AS AvgLatency
             FROM proxy_request_logs l
             LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
-            WHERE 1=1
+            WHERE {dedupFilter}
         ";
 
         if (startDate.HasValue) sql += " AND l.created_at >= @startDate";
@@ -353,14 +395,16 @@ public class UsageService
     public async Task<List<ModelStatsDto>> GetModelStatsAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
         using var conn = _dbService.CreateConnection();
-        var sql = @"
+        string freshInput = FreshInputSql();
+        string dedupFilter = EffectiveUsageLogFilter();
+        var sql = $@"
             SELECT 
                 COALESCE(pricing_model, model) AS EffectiveModel,
                 COUNT(1) AS RequestCount,
-                COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS TotalTokens,
+                COALESCE(SUM({freshInput} + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS TotalTokens,
                 COALESCE(SUM(CAST(total_cost_usd AS REAL)), 0.0) AS TotalCostNum
             FROM proxy_request_logs
-            WHERE 1=1
+            WHERE {dedupFilter}
         ";
 
         if (startDate.HasValue) sql += " AND created_at >= @startDate";

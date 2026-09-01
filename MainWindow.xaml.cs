@@ -15,8 +15,6 @@ public partial class MainWindow : Window
     private readonly LiveConfigService _liveConfigService;
     private readonly ProviderService _providerService;
     private readonly McpService _mcpService;
-    private readonly PromptService _promptService;
-    private readonly SkillService _skillService;
     private readonly AuthService _authService;
     private readonly SessionService _sessionService;
     private readonly UsageService _usageService;
@@ -24,7 +22,6 @@ public partial class MainWindow : Window
     private readonly ProfileService _profileService;
     private readonly StreamCheckService _streamService;
     private readonly CloudSyncService _cloudSyncService;
-    private readonly SkillMarketService _skillMarketService;
     private readonly LiveImportService _liveImportService;
     private TrayService? _trayService;
     private LocalStaticServer? _staticServer;
@@ -42,8 +39,6 @@ public partial class MainWindow : Window
         _liveConfigService = new LiveConfigService();
         _providerService = new ProviderService(_dbService, _settingsService, _liveConfigService);
         _mcpService = new McpService(_dbService);
-        _promptService = new PromptService(_dbService);
-        _skillService = new SkillService(_dbService);
         _authService = new AuthService();
         _sessionService = new SessionService();
         _usageService = new UsageService(_dbService);
@@ -51,7 +46,6 @@ public partial class MainWindow : Window
         _profileService = new ProfileService(_dbService);
         _streamService = new StreamCheckService(_dbService, _providerService);
         _cloudSyncService = new CloudSyncService(_dbService, _providerService, _mcpService);
-        _skillMarketService = new SkillMarketService(_dbService);
         _liveImportService = new LiveImportService(_providerService, _mcpService);
 
         try

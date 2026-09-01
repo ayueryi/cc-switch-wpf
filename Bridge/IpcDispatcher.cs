@@ -55,7 +55,7 @@ public class IpcDispatcher
             if (root.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "console_log")
             {
                 var level = root.TryGetProperty("level", out var l) ? l.GetString() : "log";
-                var msg = root.TryGetProperty("message", out var m) ? (m.GetString() ?? "") : "";
+                var msg = root.TryGetProperty("message", out var m) ? (m.ValueKind == JsonValueKind.String ? m.GetString() ?? "" : m.GetRawText()) : "";
                 switch (level?.ToLowerInvariant())
                 {
                     case "error":
@@ -139,6 +139,7 @@ public class IpcDispatcher
         return cmd switch
         {
             "get_init_error" => null,
+            "get_tool_versions" => Array.Empty<object>(),
             "get_current_provider" => "default",
             "get_providers" => new Dictionary<string, object>(),
             "get_proxy_status" => new { is_running = false, active_targets = Array.Empty<object>() },
@@ -166,6 +167,12 @@ public class IpcDispatcher
             "get_usage_summary" => new { total_cost = 0.0, total_tokens = 0 },
             "get_coding_plan_quota" => new { total = 0, used = 0 },
             "get_subscription_quota" => new { total = 0, used = 0 },
+            "get_codex_oauth_quota" => new { total = 0, used = 0 },
+            "get_xai_oauth_quota" => new { total = 0, used = 0 },
+            "get_antigravity_oauth_quota" => new { total = 0, used = 0 },
+            "get_optimizer_config" => new { enabled = false },
+            "get_rectifier_config" => new { enabled = false },
+            "get_log_config" => new { log_level = "info", max_size_mb = 10 },
             "get_balance" => new { balance = "0.00", currency = "USD" },
             "get_circuit_breaker_config" => new { enabled = false },
             "get_circuit_breaker_stats" => new { total_trips = 0 },

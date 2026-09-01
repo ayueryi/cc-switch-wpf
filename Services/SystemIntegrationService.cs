@@ -9,6 +9,17 @@ using WpfApplication = System.Windows.Application;
 
 namespace CCSwitch.Wpf.Services;
 
+public class ToolVersionDto
+{
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("version")] public string? Version { get; set; }
+    [JsonPropertyName("latest_version")] public string? LatestVersion { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+    [JsonPropertyName("installed_but_broken")] public bool InstalledButBroken { get; set; }
+    [JsonPropertyName("env_type")] public string EnvType { get; set; } = "windows";
+    [JsonPropertyName("wsl_distro")] public string? WslDistro { get; set; }
+}
+
 public class EnvConflictDto
 {
     [JsonPropertyName("key")] public string Key { get; set; } = "";
@@ -249,6 +260,31 @@ public class SystemIntegrationService
     {
         var all = CheckAllEnvConflicts();
         return all.TryGetValue(appType, out var list) ? list : new List<EnvConflictDto>();
+    }
+
+    public List<ToolVersionDto> GetToolVersions(List<string>? toolNames = null)
+    {
+        var tools = toolNames != null && toolNames.Count > 0
+            ? toolNames
+            : new List<string> { "claude", "codex", "grok", "opencode" };
+        var list = new List<ToolVersionDto>();
+
+        foreach (var tool in tools)
+        {
+            var (installed, version) = CheckBinaryInPath(tool);
+            list.Add(new ToolVersionDto
+            {
+                Name = tool,
+                Version = installed ? (version == "installed" ? "available" : version) : null,
+                LatestVersion = null,
+                Error = null,
+                InstalledButBroken = false,
+                EnvType = "windows",
+                WslDistro = null
+            });
+        }
+
+        return list;
     }
 
     public Dictionary<string, object> ProbeToolInstallations()
