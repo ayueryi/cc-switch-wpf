@@ -19,7 +19,7 @@
                 <button type="button"
                         class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "all" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
                         @onclick='() => ChangeApp("all")'>
-                    全部应用
+                    全部
                 </button>
                 <button type="button"
                         class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "claude" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
@@ -32,9 +32,19 @@
                     Codex
                 </button>
                 <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "grokbuild" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("grokbuild")'>
+                    Grok
+                </button>
+                <button type="button"
                         class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "opencode" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
                         @onclick='() => ChangeApp("opencode")'>
                     OpenCode
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "antigravity" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("antigravity")'>
+                    Antigravity
                 </button>
             </div>
 

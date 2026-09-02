@@ -125,11 +125,45 @@
         }
     </div>
 
-    <div class="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
-        <Button Variant="outline" Size="sm" OnClick="CloseModal">取消</Button>
-        <Button Variant="default" Size="sm" OnClick="SaveProvider" Disabled="@isSaving">
-            @(isSaving ? "正在保存..." : (ExistingProvider == null ? "立即添加" : "保存修改"))
-        </Button>
+    <div class="flex items-center justify-between gap-2 pt-3 border-t border-border/50">
+        @if (ExistingProvider != null)
+        {
+            @if (!isConfirmingDelete)
+            {
+                <button type="button"
+                        class="text-xs text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-medium hover:underline inline-flex items-center gap-1 transition-colors"
+                        @onclick="() => isConfirmingDelete = true">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>删除服务商</span>
+                </button>
+            }
+            else
+            {
+                <div class="flex items-center gap-1.5 animate-in fade-in">
+                    <span class="text-[11px] text-destructive font-medium">确认移除?</span>
+                    <Button Variant="destructive" Size="sm" OnClick="HandleDeleteAsync" Disabled="@isSaving">
+                        确认删除
+                    </Button>
+                    <Button Variant="ghost" Size="sm" OnClick="() => isConfirmingDelete = false">
+                        取消
+                    </Button>
+                </div>
+            }
+        }
+        else
+        {
+            <div></div>
+        }
+
+        <div class="flex items-center gap-2">
+            <Button Variant="outline" Size="sm" OnClick="CloseModal">取消</Button>
+            <Button Variant="default" Size="sm" OnClick="SaveProvider" Disabled="@isSaving">
+                @(isSaving ? "正在保存..." : (ExistingProvider == null ? "立即添加" : "保存修改"))
+            </Button>
+        </div>
     </div>
 </Dialog>
 
@@ -150,6 +184,7 @@
     private bool isSaving = false;
     private string errorMessage = "";
     private string selectedPresetId = "";
+    private bool isConfirmingDelete = false;
 
     private record PresetOption(string Id, string Name, string Icon, string BaseUrl, string Category, string Website);
 
@@ -172,6 +207,7 @@
         selectedPresetId = "";
         showApiKey = false;
         showAdvancedJson = false;
+        isConfirmingDelete = false;
 
         if (ExistingProvider != null)
         {
@@ -209,6 +245,34 @@
         if (string.IsNullOrEmpty(formNotes))
         {
             formNotes = $"{preset.Name} 端点配置";
+        }
+    }
+
+    private async Task HandleDeleteAsync()
+    {
+        if (ExistingProvider == null) return;
+        isSaving = true;
+        errorMessage = "";
+        try
+        {
+            var ok = await ProviderState.DeleteProviderAsync(ExistingProvider.Id);
+            if (ok)
+            {
+                await CloseModal();
+            }
+            else
+            {
+                errorMessage = "删除服务商失败，请重试";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"删除失败: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            isConfirmingDelete = false;
         }
     }
 

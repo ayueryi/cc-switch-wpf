@@ -94,8 +94,19 @@
 
             @if (!IsActive)
             {
-                <Button Variant="secondary" Size="sm" OnClick="HandleSwitch">
-                    切换
+                <Button Variant="secondary" Size="sm" OnClick="HandleSwitch" Disabled="@isSwitching">
+                    @if (isSwitching)
+                    {
+                        <svg class="animate-spin h-3 w-3 mr-1 text-primary" viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>切换中</span>
+                    }
+                    else
+                    {
+                        <span>切换</span>
+                    }
                 </Button>
             }
             else
@@ -130,8 +141,18 @@
         return "text-rose-500 dark:text-rose-400";
     }
 
+    private bool isSwitching = false;
+
     private async Task HandleSwitch()
     {
-        await ProviderState.SwitchProviderAsync(Provider.Id);
+        isSwitching = true;
+        try
+        {
+            await ProviderState.SwitchProviderAsync(Provider.Id);
+        }
+        finally
+        {
+            isSwitching = false;
+        }
     }
 }

@@ -106,4 +106,22 @@ public class ProviderStateService
         }
         return ok;
     }
+
+    public async Task<bool> DeleteProviderAsync(string id)
+    {
+        var app = _appStateService.CurrentApp;
+        try
+        {
+            var ok = await _providerService.DeleteProviderAsync(app, id);
+            if (ok)
+            {
+                await ReloadAsync();
+            }
+            return ok;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }
