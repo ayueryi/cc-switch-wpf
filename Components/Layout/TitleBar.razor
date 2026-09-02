@@ -6,8 +6,20 @@
 <header class="h-16 flex-shrink-0 z-30 border-b border-border/40 bg-background/95 backdrop-blur select-none flex items-center justify-between px-6 cursor-default"
         @onmousedown="HandleMouseDown">
     
-    <!-- Left: Back Button or (AppSwitcher + ProfileSwitcher) -->
+    <!-- Left: Brand Logo + (Back Button or AppSwitcher + ProfileSwitcher) -->
     <div class="flex items-center gap-3 min-w-0 no-drag" @onmousedown:stopPropagation="true">
+        <!-- App Brand Logo -->
+        <button type="button"
+                @onclick='() => AppState.SetCurrentView("providers")'
+                class="flex items-center gap-2 rounded-lg p-0.5 hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95 group focus:outline-none shrink-0"
+                title="Prism (点击返回首页)">
+            <img src="icons/app-logo.svg"
+                 alt="Prism"
+                 class="w-7 h-7 rounded-lg shadow-sm border border-border/50 object-contain transition-transform group-hover:scale-105" />
+        </button>
+
+        <div class="h-4 w-px bg-border/60"></div>
+
         @if (AppState.CurrentView != "providers")
         {
             <button type="button"

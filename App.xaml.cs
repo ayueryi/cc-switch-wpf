@@ -18,7 +18,7 @@ public partial class App : System.Windows.Application
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        LoggerService.Instance.Info("App", $"=== CC Switch Starting (Blazor Hybrid, PID: {Environment.ProcessId}) ===");
+        LoggerService.Instance.Info("App", $"=== Prism Starting (Blazor Hybrid, PID: {Environment.ProcessId}) ===");
 
         var services = new ServiceCollection();
         services.AddWpfBlazorWebView();

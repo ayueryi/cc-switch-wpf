@@ -46,7 +46,7 @@ public class TrayService : IDisposable
         _notifyIcon = new NotifyIcon
         {
             Icon = icon,
-            Text = "CC Switch",
+            Text = "Prism",
             Visible = true,
             ContextMenuStrip = _contextMenu
         };
@@ -90,7 +90,7 @@ public class TrayService : IDisposable
             var menuItems = new List<ToolStripItem>();
 
             // 1. App Header
-            var header = new ToolStripMenuItem("CC Switch (v3.20.4)") { Enabled = false };
+            var header = new ToolStripMenuItem("Prism (v3.21.0)") { Enabled = false };
             menuItems.Add(header);
             menuItems.Add(new ToolStripSeparator());
 
@@ -144,7 +144,7 @@ public class TrayService : IDisposable
             menuItems.Add(showItem);
 
             // 4. Exit
-            var exitItem = new ToolStripMenuItem("退出 CC Switch", null, (s, e) =>
+            var exitItem = new ToolStripMenuItem("退出 Prism", null, (s, e) =>
             {
                 _notifyIcon!.Visible = false;
                 LoggerService.Instance.Info("Tray", "User requested application shutdown via tray context menu");

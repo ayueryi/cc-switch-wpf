@@ -6,7 +6,7 @@
         xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
         xmlns:local="clr-namespace:CCSwitch.Wpf"
         mc:Ignorable="d"
-        Title="CC Switch"
+        Title="Prism"
         Icon="icon.ico"
         Height="680"
         Width="1020"

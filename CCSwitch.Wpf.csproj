@@ -9,8 +9,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>CCSwitch</AssemblyName>
     <RootNamespace>CCSwitch.Wpf</RootNamespace>
-    <Product>CC Switch for Windows</Product>
-    <Description>WPF + Blazor Hybrid Native Host for CC Switch</Description>
+    <Product>Prism for Windows</Product>
+    <Description>WPF + Blazor Hybrid Native Host for Prism Gateway</Description>
     <Version>3.21.0</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>

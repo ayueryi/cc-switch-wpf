@@ -1,54 +1,48 @@
-@inject WindowNativeService WindowService
+@inject IJSRuntime JS
 
-<div class="space-y-5 select-none animate-in fade-in duration-200">
-    <!-- Brand Hero Card -->
-    <div class="glass-card p-6 rounded-2xl border border-border/60 space-y-5 shadow-sm">
+<div class="space-y-5 select-none animate-in fade-in duration-200 pb-4">
+    <!-- 1. Brand Hero Card -->
+    <div class="glass-card p-6 rounded-2xl border border-border/60 space-y-6 shadow-sm">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-border/40 pb-5">
             <div class="flex items-center gap-4">
                 <img src="icons/app-logo.svg"
-                     alt="CC Switch Logo"
+                     alt="Prism Logo"
                      class="w-14 h-14 rounded-2xl shadow-md shrink-0 border border-border/60 object-cover" />
                 <div class="space-y-1">
                     <div class="flex items-center gap-2.5 flex-wrap">
-                        <h3 class="font-bold text-lg text-foreground tracking-tight">CC Switch</h3>
+                        <h3 class="font-bold text-lg text-foreground tracking-tight">Prism</h3>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                             v3.21.0
                         </span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border/50 font-mono">
-                            Windows Native Host
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            ● 稳定就绪
                         </span>
                     </div>
                     <p class="text-xs text-muted-foreground max-w-xl leading-relaxed">
-                        专为 AI 辅助编程打造的高性能多模型分发网关与服务商配置切换中心
+                        专为开发者打造的高性能多模型分发网关与服务商智能调度中枢
                     </p>
                 </div>
             </div>
 
-            <!-- External Links & Action Buttons -->
+            <!-- UI Preserved: Action Badges (功能与旧外链已完全剔除，100%保留原生质感 UI 呈现) -->
             <div class="flex items-center gap-2 flex-wrap">
-                <button type="button"
-                        @onclick='() => WindowService.OpenUrl("https://ccswitch.io")'
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted text-xs text-foreground transition-all hover:border-border">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 text-xs text-foreground select-none cursor-default">
                     <svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="2" y1="12" x2="22" y2="12"></line>
                         <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                     </svg>
                     <span>官方主页</span>
-                </button>
+                </div>
 
-                <button type="button"
-                        @onclick='() => WindowService.OpenUrl("https://github.com/farion1231/cc-switch")'
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted text-xs text-foreground transition-all hover:border-border">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 text-xs text-foreground select-none cursor-default">
                     <svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
                     </svg>
                     <span>GitHub</span>
-                </button>
+                </div>
 
-                <button type="button"
-                        @onclick='() => WindowService.OpenUrl("https://github.com/farion1231/cc-switch/releases")'
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted text-xs text-foreground transition-all hover:border-border">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-muted/40 text-xs text-foreground select-none cursor-default">
                     <svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -57,25 +51,22 @@
                         <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
                     <span>发版说明</span>
-                </button>
+                </div>
 
-                <button type="button"
-                        @onclick="CheckUpdateAsync"
-                        disabled="@isCheckingUpdate"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-sm hover:bg-primary/90 transition-all">
-                    <svg class="w-3.5 h-3.5 @(isCheckingUpdate ? "animate-spin" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-sm select-none cursor-default">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                         <path d="M3 3v5h5"></path>
                         <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
                         <path d="M16 21h5v-5"></path>
                     </svg>
-                    <span>@(isCheckingUpdate ? "检查中..." : updateStatusText)</span>
-                </button>
+                    <span>检查更新</span>
+                </div>
             </div>
         </div>
 
         <!-- Ecosystem Support Grid -->
-        <div class="space-y-2">
+        <div class="space-y-2.5">
             <div class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">支持的 AI 编程助手与客户端生态</div>
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div class="p-3 rounded-xl bg-muted/30 border border-border/40 flex items-center gap-2.5">
@@ -121,90 +112,152 @@
         </div>
     </div>
 
-    <!-- Core Architecture & Technical Specifications -->
+    <!-- 2. Core Capabilities Grid -->
     <div class="glass-card p-6 rounded-2xl border border-border/60 space-y-4 shadow-sm">
-        <div class="flex items-center justify-between border-b border-border/40 pb-3">
-            <div>
-                <h4 class="font-bold text-xs text-foreground">技术架构与运行环境</h4>
-                <p class="text-[11px] text-muted-foreground mt-0.5">全栈 C# 原生闭环设计，打造极致低延迟与安全的数据隔离</p>
-            </div>
-            <span class="text-[10px] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold">
-                健康运行中
-            </span>
+        <div class="border-b border-border/40 pb-3">
+            <h4 class="font-bold text-xs text-foreground flex items-center gap-2">
+                <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <span>核心设计特性 (Core Capabilities)</span>
+            </h4>
+            <p class="text-[11px] text-muted-foreground mt-0.5">聚合全球顶级大模型与开发者工具链，赋予本地开发工作流无限自由</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
-            <div class="p-3.5 rounded-xl bg-muted/40 border border-border/40 space-y-1">
-                <div class="flex items-center justify-between">
-                    <span class="text-muted-foreground text-[10px]">宿主运行时 (Host Runtime)</span>
-                    <span class="text-[10px] font-mono text-primary">Windows 11 / 10</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <!-- Feature 1 -->
+            <div class="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-1.5 hover:border-border/80 transition-colors">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="18" r="3"></circle>
+                            <circle cx="6" cy="6" r="3"></circle>
+                            <path d="M18 6v6a6 6 0 0 1-6 6H6"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-foreground">多模型统一智能分发</span>
                 </div>
-                <div class="font-semibold text-foreground">WPF (.NET 10.0 CLR)</div>
-                <p class="text-[10px] text-muted-foreground">原生 DWM 硬件级圆角边框与系统明暗色彩双向硬件联动</p>
+                <p class="text-[11px] text-muted-foreground leading-relaxed pl-9">
+                    统一聚合 Anthropic、OpenAI、xAI、Google 等全球百模，支持自定义聚合服务商与私有端点自由扩展。
+                </p>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-muted/40 border border-border/40 space-y-1">
-                <div class="flex items-center justify-between">
-                    <span class="text-muted-foreground text-[10px]">渲染核心 (UI Engine)</span>
-                    <span class="text-[10px] font-mono text-emerald-500">60 FPS 硬件加速</span>
+            <!-- Feature 2 -->
+            <div class="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-1.5 hover:border-border/80 transition-colors">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-foreground">零延迟配置热重载</span>
                 </div>
-                <div class="font-semibold text-foreground">Blazor Hybrid + Microsoft Edge WebView2</div>
-                <p class="text-[10px] text-muted-foreground">Tailwind CSS 原生编译与高性能 SVG 矢量走势图表流式呈现</p>
+                <p class="text-[11px] text-muted-foreground leading-relaxed pl-9">
+                    切换服务商或更改 API Key 毫秒级即时生效，无需重启终端助手，保持无缝编码心流。
+                </p>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-muted/40 border border-border/40 space-y-1">
-                <div class="flex items-center justify-between">
-                    <span class="text-muted-foreground text-[10px]">本地分发网关 (Proxy Gateway)</span>
-                    <span class="text-[10px] font-mono text-blue-500">127.0.0.1:17890</span>
+            <!-- Feature 3 -->
+            <div class="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-1.5 hover:border-border/80 transition-colors">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-foreground">全景用量与成本度量</span>
                 </div>
-                <div class="font-semibold text-foreground">高性能异步反向代理与审计拦截器</div>
-                <p class="text-[10px] text-muted-foreground">提供自动负载切换、Token 精确统计与 Prompt 缓存命中度量</p>
+                <p class="text-[11px] text-muted-foreground leading-relaxed pl-9">
+                    三次贝塞尔平滑面积走势图，高精度追踪输入输出 Tokens、Prompt 缓存命中率与多维美元成本。
+                </p>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-muted/40 border border-border/40 space-y-1">
-                <div class="flex items-center justify-between">
-                    <span class="text-muted-foreground text-[10px]">数据存储层 (Persistence)</span>
-                    <span class="text-[10px] font-mono text-orange-500">WAL 高速并发</span>
+            <!-- Feature 4 -->
+            <div class="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-1.5 hover:border-border/80 transition-colors">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-foreground">本地隐私优先安全架构</span>
                 </div>
-                <div class="font-semibold text-foreground">SQLite 3 + Dapper 微型 ORM</div>
-                <p class="text-[10px] text-muted-foreground">本地密钥安全加密、配置实时热加载与零依赖独立闭环</p>
+                <p class="text-[11px] text-muted-foreground leading-relaxed pl-9">
+                    所有凭证密钥与配置全量留存于本地独立加密存储，绝不上传任何第三方分析服务器。
+                </p>
             </div>
         </div>
     </div>
 
-    <!-- Open Source & Copyright Footer -->
-    <div class="flex items-center justify-between px-2 text-[11px] text-muted-foreground">
+    <!-- 3. Local Gateway Reference Card -->
+    <div class="glass-card p-6 rounded-2xl border border-border/60 space-y-4 shadow-sm">
+        <div class="flex items-center justify-between border-b border-border/40 pb-3">
+            <div>
+                <h4 class="font-bold text-xs text-foreground">本地代理网关快速接入 (Local Gateway)</h4>
+                <p class="text-[11px] text-muted-foreground mt-0.5">在您的 CLI 工具或环境变量中配置以下本地端点即可透明转发</p>
+            </div>
+            <span class="text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 font-semibold">
+                Port: 17890
+            </span>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border/40 font-mono text-xs">
+            <div class="flex items-center gap-2 truncate text-foreground">
+                <span class="text-muted-foreground select-none">$</span>
+                <span class="select-all font-semibold">http://127.0.0.1:17890</span>
+                <span class="text-[10px] text-muted-foreground font-sans ml-2">(反向代理监听地址)</span>
+            </div>
+            <button type="button"
+                    @onclick="CopyEndpointAsync"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-background hover:bg-muted text-xs text-foreground font-sans transition-all shrink-0 active:scale-95">
+                <svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>@(isCopied ? "已复制到剪贴板！" : "复制端点")</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. Open Source & Copyright Footer -->
+    <div class="flex items-center justify-between px-2 text-[11px] text-muted-foreground pt-1">
         <div>
             <span>基于 </span>
             <span class="font-semibold text-foreground">MIT License</span>
             <span> 开源协议分发 · 开放透明自由</span>
         </div>
         <div>
-            <span>© 2026 CC Switch Contributors. All rights reserved.</span>
+            <span>© 2026 Prism Contributors. All rights reserved.</span>
         </div>
     </div>
 </div>
 
 @code {
-    private bool isCheckingUpdate = false;
-    private string updateStatusText = "检查更新";
+    private bool isCopied = false;
 
-    private async Task CheckUpdateAsync()
+    private async Task CopyEndpointAsync()
     {
-        isCheckingUpdate = true;
-        StateHasChanged();
-
-        await Task.Delay(800);
-
-        isCheckingUpdate = false;
-        updateStatusText = "当前已是最新版本";
-        StateHasChanged();
-
-        _ = Task.Run(async () =>
+        try
         {
-            await Task.Delay(3000);
-            updateStatusText = "检查更新";
-            await InvokeAsync(StateHasChanged);
-        });
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", "http://127.0.0.1:17890");
+            isCopied = true;
+            StateHasChanged();
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                isCopied = false;
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AboutSection] Copy failed: {ex.Message}");
+        }
     }
 }

@@ -1,6 +1,6 @@
-# CC Switch (WPF + WebView2 Native Container)
+# Prism (WPF + Blazor Hybrid Native Gateway)
 
-基于 **WPF (.NET 10) + Microsoft Edge WebView2** 实现的 CC Switch Windows 原生容器宿主，旨在 100% 完美复刻并复用现有 React + Tailwind 前端。
+基于 **WPF (.NET 10) + Microsoft Edge WebView2** 实现的 Prism Windows 原生多模型分发网关，旨在 100% 完美复刻并复用现有 React + Tailwind 前端。
 
 ---
 
