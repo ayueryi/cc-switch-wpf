@@ -1,0 +1,189 @@
+@inject McpStateService McpState
+@inject AppStateService AppState
+@implements IDisposable
+
+<div class="h-full w-full flex flex-col p-6 overflow-hidden select-none">
+    <!-- Header Controls & App Distribution Bar -->
+    <div class="flex items-center justify-between gap-3 mb-5 flex-shrink-0 flex-wrap">
+        <!-- Search Box -->
+        <div class="relative flex-1 max-w-sm">
+            <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text"
+                   placeholder="搜索 MCP 工具名称或描述..."
+                   class="w-full pl-9 pr-3 py-1.5 text-xs bg-muted/50 border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                   value="@searchQuery"
+                   @oninput="HandleSearch" />
+        </div>
+
+        <!-- Right Controls: App Status & Add Button -->
+        <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-1.5 bg-muted p-1 rounded-xl text-xs">
+                <div class="flex items-center gap-1 px-2 py-1 rounded-md bg-background/80 shadow-sm">
+                    <img src="icons/claude.svg" class="w-3.5 h-3.5 object-contain" />
+                    <span class="font-medium text-[11px]">Claude (@ClaudeEnabledCount)</span>
+                </div>
+                <div class="flex items-center gap-1 px-2 py-1 rounded-md bg-background/80 shadow-sm">
+                    <img src="icons/openai.svg" class="w-3.5 h-3.5 object-contain dark:brightness-0 dark:invert" />
+                    <span class="font-medium text-[11px]">Codex (@CodexEnabledCount)</span>
+                </div>
+                <div class="flex items-center gap-1 px-2 py-1 rounded-md bg-background/80 shadow-sm">
+                    <img src="icons/opencode-logo-light.svg" class="w-3.5 h-3.5 object-contain" />
+                    <span class="font-medium text-[11px]">OpenCode (@OpenCodeEnabledCount)</span>
+                </div>
+            </div>
+
+            <Button Variant="default" Size="sm" OnClick="OpenAddModal">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                添加 MCP 工具
+            </Button>
+        </div>
+    </div>
+
+    <!-- MCP Server List Grid -->
+    <div class="flex-1 overflow-y-auto pr-1 space-y-3">
+        @if (McpState.IsLoading)
+        {
+            <div class="h-full flex items-center justify-center text-muted-foreground text-xs">
+                <span>正在加载 MCP 配置...</span>
+            </div>
+        }
+        else if (!FilteredServers.Any())
+        {
+            <div class="h-64 flex flex-col items-center justify-center text-muted-foreground text-xs gap-3 border border-dashed border-border/80 rounded-2xl bg-card/40">
+                <span class="text-muted-foreground font-medium">暂未配置任何 MCP 服务器</span>
+                <Button Variant="secondary" Size="sm" OnClick="OpenAddModal">
+                    添加第一个 MCP 工具
+                </Button>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                @foreach (var server in FilteredServers)
+                {
+                    <div class="bg-card border border-border/60 hover:border-border hover:bg-muted/20 p-4 rounded-xl transition-all flex flex-col justify-between gap-3 group">
+                        <!-- Top Info -->
+                        <div class="flex items-start justify-between gap-2.5">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    <svg fill="currentColor" height="18" width="18" viewBox="0 0 24 24">
+                                        <path d="M15.688 2.343a2.588 2.588 0 00-3.61 0l-9.626 9.44a.863.863 0 01-1.203 0 .823.823 0 010-1.18l9.626-9.44a4.313 4.313 0 016.016 0 4.116 4.116 0 011.204 3.54 4.3 4.3 0 013.609 1.18l.05.05a4.115 4.115 0 010 5.9l-8.706 8.537a.274.274 0 000 .393l1.788 1.754a.823.823 0 010 1.18.863.863 0 01-1.203 0l-1.788-1.753a1.92 1.92 0 010-2.754l8.706-8.538a2.47 2.47 0 000-3.54l-.05-.049a2.588 2.588 0 00-3.607-.003l-7.172 7.034-.002.002-.098.097a.863.863 0 01-1.204 0 .823.823 0 010-1.18l7.273-7.133a2.47 2.47 0 00-.003-3.537z" />
+                                        <path d="M14.485 4.703a.823.823 0 000-1.18.863.863 0 00-1.204 0l-7.119 6.982a4.115 4.115 0 000 5.9 4.314 4.314 0 006.016 0l7.12-6.982a.823.823 0 000-1.18.863.863 0 00-1.204 0l-7.119 6.982a2.588 2.588 0 01-3.61 0 2.47 2.47 0 010-3.54l7.12-6.982z" />
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="font-semibold text-xs text-foreground truncate">@server.Name</h3>
+                                    <p class="text-[11px] text-muted-foreground truncate mt-0.5">
+                                        @(string.IsNullOrEmpty(server.Description) ? $"标识: {server.Id}" : server.Description)
+                                    </p>
+                                </div>
+                            </div>
+
+                            <Button Variant="ghost" Size="sm" OnClick="() => OpenEditModal(server)">
+                                编辑
+                            </Button>
+                        </div>
+
+                        <!-- App Toggle Badges -->
+                        <div class="pt-2.5 border-t border-border/40 flex items-center justify-between text-xs">
+                            <span class="text-muted-foreground text-[10px] font-medium">启用应用分发:</span>
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] hover:text-foreground transition-colors">
+                                    <Switch Value="@server.Apps.Claude"
+                                            ValueChanged="@(v => ToggleApp(server.Id, "claude", v))" />
+                                    <span>Claude</span>
+                                </label>
+
+                                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] hover:text-foreground transition-colors">
+                                    <Switch Value="@server.Apps.Codex"
+                                            ValueChanged="@(v => ToggleApp(server.Id, "codex", v))" />
+                                    <span>Codex</span>
+                                </label>
+
+                                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] hover:text-foreground transition-colors">
+                                    <Switch Value="@server.Apps.Opencode"
+                                            ValueChanged="@(v => ToggleApp(server.Id, "opencode", v))" />
+                                    <span>OpenCode</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Modal -->
+    <AddOrEditMcpModal @bind-IsOpen="isModalOpen"
+                       ExistingServer="@selectedServer" />
+</div>
+
+@code {
+    private string searchQuery = "";
+    private bool isModalOpen = false;
+    private McpServerDto? selectedServer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        McpState.OnMcpChanged += HandleUpdate;
+        await McpState.ReloadAsync();
+    }
+
+    private void HandleUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private int ClaudeEnabledCount => McpState.Servers.Count(s => s.Apps.Claude);
+    private int CodexEnabledCount => McpState.Servers.Count(s => s.Apps.Codex);
+    private int OpenCodeEnabledCount => McpState.Servers.Count(s => s.Apps.Opencode);
+
+    private IEnumerable<McpServerDto> FilteredServers
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                return McpState.Servers;
+            }
+
+            return McpState.Servers.Where(s =>
+                s.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Id.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                (s.Description?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+    }
+
+    private void HandleSearch(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+    }
+
+    private void OpenAddModal()
+    {
+        selectedServer = null;
+        isModalOpen = true;
+    }
+
+    private void OpenEditModal(McpServerDto server)
+    {
+        selectedServer = server;
+        isModalOpen = true;
+    }
+
+    private async Task ToggleApp(string serverId, string app, bool enabled)
+    {
+        await McpState.ToggleAppAsync(serverId, app, enabled);
+    }
+
+    public void Dispose()
+    {
+        McpState.OnMcpChanged -= HandleUpdate;
+    }
+}

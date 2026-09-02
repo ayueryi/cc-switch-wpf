@@ -1,0 +1,145 @@
+@inject WindowNativeService WindowService
+@inject AppStateService AppState
+@inject ThemeStateService ThemeState
+@implements IDisposable
+
+<header class="h-16 flex-shrink-0 z-30 border-b border-border/40 bg-background/95 backdrop-blur select-none flex items-center justify-between px-6 cursor-default"
+        @onmousedown="HandleMouseDown">
+    
+    <!-- Left: Back Button or (AppSwitcher + ProfileSwitcher) -->
+    <div class="flex items-center gap-3 min-w-0 no-drag" @onmousedown:stopPropagation="true">
+        @if (AppState.CurrentView != "providers")
+        {
+            <button type="button"
+                    @onclick='() => AppState.SetCurrentView("providers")'
+                    class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                <span>返回</span>
+            </button>
+        }
+        else
+        {
+            <AppSwitcher />
+            <ProfileSwitcher />
+        }
+    </div>
+
+    <!-- Center: Empty Flexible Drag Region -->
+    <div class="flex-1 h-full cursor-default"></div>
+
+    <!-- Right: Add Button, Theme, Settings & Window Controls -->
+    <div class="flex items-center gap-2 no-drag" @onmousedown:stopPropagation="true">
+        @if (AppState.CurrentView == "providers")
+        {
+            <!-- Signature Orange Floating Add Button -->
+            <button type="button"
+                    class="bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30 dark:shadow-orange-500/40 rounded-full w-8 h-8 flex items-center justify-center mr-1 transition-transform active:scale-95 shrink-0"
+                    @onclick="() => AppState.RequestOpenAddProviderModal()"
+                    title="添加新服务商">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        }
+
+        <!-- Dark/Light Theme Switcher -->
+        <button type="button"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                @onclick="ThemeState.ToggleTheme"
+                title="切换明暗主题">
+            @if (ThemeState.IsDark)
+            {
+                <!-- Sun Icon -->
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                </svg>
+            }
+            else
+            {
+                <!-- Moon Icon -->
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                </svg>
+            }
+        </button>
+
+        <!-- Settings Page Entry -->
+        <button type="button"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors @(AppState.CurrentView == "settings" ? "bg-black/10 dark:bg-white/10 text-foreground" : "")"
+                @onclick='() => AppState.SetCurrentView("settings")'
+                title="全局设置">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
+
+        <!-- Vertical Divider -->
+        <div class="h-4 w-px bg-border/80 mx-0.5"></div>
+
+        <!-- Window Minimize -->
+        <button type="button"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                @onclick="WindowService.Minimize"
+                title="最小化">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+
+        <!-- Window Maximize / Restore -->
+        <button type="button"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                @onclick="WindowService.ToggleMaximize"
+                title="最大化/还原">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            </svg>
+        </button>
+
+        <!-- Window Close -->
+        <button type="button"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-white hover:bg-red-500 transition-colors"
+                @onclick="WindowService.Close"
+                title="关闭">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+</header>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AppState.OnStateChanged += HandleUpdate;
+        ThemeState.OnThemeChanged += HandleUpdate;
+        WindowService.OnWindowStateChanged += HandleUpdate;
+    }
+
+    private void HandleUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleMouseDown(MouseEventArgs e)
+    {
+        if (e.Button == 0)
+        {
+            WindowService.DragMove();
+        }
+    }
+
+    public void Dispose()
+    {
+        AppState.OnStateChanged -= HandleUpdate;
+        ThemeState.OnThemeChanged -= HandleUpdate;
+        WindowService.OnWindowStateChanged -= HandleUpdate;
+    }
+}

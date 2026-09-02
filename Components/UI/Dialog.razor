@@ -1,0 +1,66 @@
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+         @onmousedown="HandleBackdropClick">
+        
+        <div class="glass-card bg-background/95 border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden text-foreground animate-slide-up"
+             @onmousedown:stopPropagation="true">
+            
+            <!-- Header -->
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border/60 flex-shrink-0">
+                <div>
+                    <h3 class="font-semibold text-sm text-foreground">@Title</h3>
+                    @if (!string.IsNullOrEmpty(Description))
+                    {
+                        <p class="text-xs text-muted-foreground mt-0.5">@Description</p>
+                    }
+                </div>
+                <button class="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        @onclick="Close">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 overflow-y-auto flex-1 text-xs space-y-3">
+                @ChildContent
+            </div>
+
+            <!-- Footer -->
+            @if (FooterContent != null)
+            {
+                <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border/60 bg-muted/30 flex-shrink-0">
+                    @FooterContent
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleBackdropClick(MouseEventArgs e)
+    {
+        if (e.Button == 0)
+        {
+            await Close();
+        }
+    }
+}

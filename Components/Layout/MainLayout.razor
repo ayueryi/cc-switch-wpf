@@ -1,0 +1,38 @@
+@inherits LayoutComponentBase
+@inject ThemeStateService ThemeState
+@inject AppStateService AppState
+@inject WindowNativeService WindowService
+@implements IDisposable
+
+<div class="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground @(ThemeState.IsDark ? "dark" : "")">
+    <!-- Top Custom TitleBar -->
+    <TitleBar />
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-hidden relative flex flex-col bg-background/50">
+        @(ChildContent ?? Body)
+    </main>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ThemeState.OnThemeChanged += HandleUpdate;
+        AppState.OnStateChanged += HandleUpdate;
+        WindowService.OnWindowStateChanged += HandleUpdate;
+    }
+
+    private void HandleUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeState.OnThemeChanged -= HandleUpdate;
+        AppState.OnStateChanged -= HandleUpdate;
+        WindowService.OnWindowStateChanged -= HandleUpdate;
+    }
+}

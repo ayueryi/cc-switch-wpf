@@ -1,0 +1,183 @@
+@inject ProviderStateService ProviderState
+@inject StreamCheckService StreamCheckService
+@inject AppStateService AppState
+@implements IDisposable
+
+<div class="h-full w-full flex flex-col p-6 overflow-hidden">
+    <!-- Action Bar -->
+    <div class="flex items-center justify-between gap-3 mb-4 flex-shrink-0">
+        <!-- Search Box -->
+        <div class="relative flex-1 max-w-sm">
+            <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text"
+                   placeholder="搜索服务商..."
+                   class="w-full pl-9 pr-3 py-1.5 text-xs bg-muted/50 border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                   value="@searchQuery"
+                   @oninput="HandleSearch" />
+        </div>
+
+        <!-- Right Controls -->
+        <div class="flex items-center gap-2">
+            <Button Variant="outline" Size="sm" OnClick="HandleCheckAll">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                一键测速
+            </Button>
+
+            <Button Variant="default" Size="sm" OnClick="OpenAddModal">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                添加服务商
+            </Button>
+        </div>
+    </div>
+
+    <!-- Provider List Grid -->
+    <div class="flex-1 overflow-y-auto pr-1 space-y-2.5">
+        @if (ProviderState.IsLoading)
+        {
+            <div class="h-full flex items-center justify-center text-muted-foreground text-xs">
+                <div class="flex items-center gap-2">
+                    <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    正在加载服务商配置...
+                </div>
+            </div>
+        }
+        else if (!FilteredProviders.Any())
+        {
+            <div class="h-64 flex flex-col items-center justify-center text-muted-foreground text-xs gap-3 border border-dashed border-border/80 rounded-2xl bg-card/40">
+                <span class="text-muted-foreground font-medium">暂无 @AppState.CurrentApp 的服务商配置</span>
+                <Button Variant="secondary" Size="sm" OnClick="OpenAddModal">
+                    立即添加第一个服务商
+                </Button>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                @foreach (var provider in FilteredProviders)
+                {
+                    bool isActive = provider.Id == ProviderState.CurrentProviderId;
+                    bool isChecking = checkingMap.TryGetValue(provider.Id, out var c) && c;
+                    latencyMap.TryGetValue(provider.Id, out var lat);
+
+                    <ProviderCard @key="provider.Id"
+                                  Provider="@provider"
+                                  IsActive="@isActive"
+                                  IsChecking="@isChecking"
+                                  LatencyResult="@lat"
+                                  OnEdit="@OpenEditModal"
+                                  OnCheckLatency="@CheckSingleLatency" />
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Add / Edit Modal Dialog -->
+    <AddOrEditProviderModal @bind-IsOpen="isModalOpen"
+                            ExistingProvider="@selectedProvider" />
+</div>
+
+@code {
+    private string searchQuery = "";
+    private bool isModalOpen = false;
+    private ProviderDto? selectedProvider;
+    private Dictionary<string, bool> checkingMap = new();
+    private Dictionary<string, StreamCheckResultDto> latencyMap = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProviderState.OnProvidersChanged += OnProvidersUpdated;
+        AppState.OnOpenAddProviderModalRequested += OpenAddModal;
+        await ProviderState.ReloadAsync();
+    }
+
+    private void OnProvidersUpdated()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private IEnumerable<ProviderDto> FilteredProviders
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                return ProviderState.Providers;
+            }
+
+            return ProviderState.Providers.Where(p =>
+                p.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                (p.Notes?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.WebsiteUrl?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+    }
+
+    private void HandleSearch(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+    }
+
+    private void OpenAddModal()
+    {
+        selectedProvider = null;
+        isModalOpen = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenEditModal(ProviderDto provider)
+    {
+        selectedProvider = provider;
+        isModalOpen = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CheckSingleLatency(string providerId)
+    {
+        checkingMap[providerId] = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var app = AppState.CurrentApp;
+            var res = await StreamCheckService.CheckProviderAsync(app, providerId);
+            latencyMap[providerId] = res;
+        }
+        catch (Exception ex)
+        {
+            latencyMap[providerId] = new StreamCheckResultDto
+            {
+                ProviderId = providerId,
+                IsOk = false,
+                Message = ex.Message
+            };
+        }
+        finally
+        {
+            checkingMap[providerId] = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleCheckAll()
+    {
+        var providers = FilteredProviders.ToList();
+        var tasks = providers.Select(p => CheckSingleLatency(p.Id));
+        await Task.WhenAll(tasks);
+    }
+
+    public void Dispose()
+    {
+        ProviderState.OnProvidersChanged -= OnProvidersUpdated;
+        AppState.OnOpenAddProviderModalRequested -= OpenAddModal;
+    }
+}

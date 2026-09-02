@@ -1,0 +1,429 @@
+@using System.Globalization
+@inject UsageService UsageService
+
+<div class="h-full w-full flex flex-col p-6 overflow-y-auto space-y-6 max-w-6xl mx-auto select-none">
+    <!-- Header & Filter Bar -->
+    <div class="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-border/40">
+        <div>
+            <h2 class="text-base font-bold text-foreground flex items-center gap-2">
+                <span>Token 用量与统计分析</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">全景看板</span>
+            </h2>
+            <p class="text-xs text-muted-foreground mt-0.5">监控多应用多模型的 Token 吞吐、Prompt 缓存命中率与调用成本</p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+            <!-- App Filter -->
+            <div class="inline-flex bg-muted p-0.5 rounded-lg border border-border/50">
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "all" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("all")'>
+                    全部应用
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "claude" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("claude")'>
+                    Claude
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "codex" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("codex")'>
+                    Codex
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedApp == "opencode" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeApp("opencode")'>
+                    OpenCode
+                </button>
+            </div>
+
+            <!-- Time Range Filter -->
+            <div class="inline-flex bg-muted p-0.5 rounded-lg border border-border/50">
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedRange == "today" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeRange("today")'>
+                    今天
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedRange == "7d" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeRange("7d")'>
+                    近7天
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedRange == "30d" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeRange("30d")'>
+                    近30天
+                </button>
+                <button type="button"
+                        class="px-2.5 py-1 rounded-md transition-all @(selectedRange == "all" ? "bg-background text-foreground font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                        @onclick='() => ChangeRange("all")'>
+                    全部
+                </button>
+            </div>
+
+            <!-- Refresh Button -->
+            <button type="button"
+                    @onclick="ReloadAllAsync"
+                    disabled="@isLoading"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground transition-all border border-border/60">
+                <svg class="w-3.5 h-3.5 @(isLoading ? "animate-spin text-primary" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 21h5v-5"></path>
+                </svg>
+                <span>刷新</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Usage Hero: 4 Major Metric Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Card 1: Total Real Tokens -->
+        <div class="bg-card border border-border/60 p-4 rounded-xl space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-muted-foreground text-[11px]">
+                <span>总 Token 吞吐量</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-primary/10 text-primary font-semibold">Real Tokens</span>
+            </div>
+            <div class="text-2xl font-bold font-mono text-primary">
+                @FormatTokens(summary.RealTotalTokens > 0 ? summary.RealTotalTokens : (summary.TotalInputTokens + summary.TotalOutputTokens))
+            </div>
+            <div class="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground pt-1 border-t border-border/40 font-mono">
+                <div>输入: @FormatTokens(summary.TotalInputTokens)</div>
+                <div>输出: @FormatTokens(summary.TotalOutputTokens)</div>
+                <div>写入: @FormatTokens(summary.TotalCacheCreationTokens)</div>
+                <div>读取: @FormatTokens(summary.TotalCacheReadTokens)</div>
+            </div>
+        </div>
+
+        <!-- Card 2: Cache Hit Rate -->
+        <div class="bg-card border border-border/60 p-4 rounded-xl space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-muted-foreground text-[11px]">
+                <span>Prompt 缓存命中率</span>
+                <span class="text-[10px] font-mono text-emerald-500 font-semibold">加速省费</span>
+            </div>
+            <div class="text-2xl font-bold font-mono text-emerald-500">
+                @((summary.CacheHitRate * 100).ToString("F1"))%
+            </div>
+            <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: @Math.Min(100, summary.CacheHitRate * 100)%"></div>
+            </div>
+            <div class="text-[10px] text-muted-foreground font-mono">
+                缓存命中节省 @FormatTokens(summary.TotalCacheReadTokens) Tokens
+            </div>
+        </div>
+
+        <!-- Card 3: Estimated Cost -->
+        <div class="bg-card border border-border/60 p-4 rounded-xl space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-muted-foreground text-[11px]">
+                <span>预估总调用成本</span>
+                <span class="text-[10px] font-mono text-foreground font-semibold">USD</span>
+            </div>
+            <div class="text-2xl font-bold font-mono text-foreground">
+                $@summary.TotalCost
+            </div>
+            <div class="text-[10px] text-muted-foreground pt-1 border-t border-border/40 font-mono flex items-center justify-between">
+                <span>单次平均成本:</span>
+                <span class="text-foreground">$@(summary.TotalRequests > 0 ? (double.Parse(summary.TotalCost, CultureInfo.InvariantCulture) / summary.TotalRequests).ToString("F5") : "0.00000")</span>
+            </div>
+        </div>
+
+        <!-- Card 4: Total Requests & Health -->
+        <div class="bg-card border border-border/60 p-4 rounded-xl space-y-2 shadow-sm">
+            <div class="flex items-center justify-between text-muted-foreground text-[11px]">
+                <span>请求调用总量</span>
+                <span class="text-[10px] font-mono text-emerald-500 font-semibold">健康率 @((summary.SuccessRate * 100).ToString("F1"))%</span>
+            </div>
+            <div class="text-2xl font-bold font-mono text-foreground">
+                @summary.TotalRequests.ToString("N0")
+            </div>
+            <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div class="bg-primary h-full rounded-full transition-all duration-500" style="width: @Math.Min(100, summary.SuccessRate * 100)%"></div>
+            </div>
+            <div class="text-[10px] text-muted-foreground font-mono flex items-center justify-between">
+                <span>状态良好</span>
+                <span class="text-muted-foreground">@(summary.TotalRequests) 次完成</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Usage Trend Visualization -->
+    <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm">
+        <div class="flex items-center justify-between">
+            <h3 class="font-bold text-xs text-foreground flex items-center gap-2">
+                <span>每日用量与吞吐趋势</span>
+                <span class="text-[10px] font-normal text-muted-foreground">(最近周期活跃分布)</span>
+            </h3>
+        </div>
+
+        @if (!trends.Any())
+        {
+            <div class="h-28 flex items-center justify-center text-xs text-muted-foreground">
+                暂无所选时间区间的趋势走势记录
+            </div>
+        }
+        else
+        {
+            var maxTokens = Math.Max(1, trends.Max(t => (long)t.TotalTokens));
+            <div class="space-y-2 pt-2">
+                @foreach (var day in trends.TakeLast(10))
+                {
+                    double pct = (double)day.TotalTokens / maxTokens * 100;
+                    <div class="flex items-center gap-3 text-xs font-mono">
+                        <span class="w-20 text-[11px] text-muted-foreground shrink-0 truncate">@day.Date</span>
+                        <div class="flex-1 bg-muted/60 rounded-md h-5 p-0.5 overflow-hidden flex items-center">
+                            <div class="bg-primary/80 hover:bg-primary h-full rounded transition-all duration-300 flex items-center px-2 text-[10px] text-white font-medium truncate"
+                                 style="width: @Math.Max(5, pct)%">
+                                @FormatTokens(day.TotalTokens)
+                            </div>
+                        </div>
+                        <span class="w-16 text-right text-[11px] text-foreground shrink-0">@day.RequestCount 次</span>
+                        <span class="w-20 text-right text-[11px] text-primary shrink-0">$@day.TotalCost</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Model Stats & Provider Stats Dual Tables -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- Model Stats Table -->
+        <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between border-b border-border/40 pb-2.5">
+                <h3 class="font-bold text-xs text-foreground">模型用量分布 (Model Stats)</h3>
+                <span class="text-[10px] text-muted-foreground">TOP 消耗</span>
+            </div>
+
+            <div class="overflow-x-auto text-xs flex-1">
+                <table class="w-full text-left">
+                    <thead class="text-muted-foreground text-[10px] border-b border-border/30">
+                        <tr>
+                            <th class="pb-2 font-medium">模型名称</th>
+                            <th class="pb-2 font-medium text-right">请求数</th>
+                            <th class="pb-2 font-medium text-right">总 Tokens</th>
+                            <th class="pb-2 font-medium text-right">预估费用</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border/20 font-mono text-[11px]">
+                        @if (!modelStats.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="py-6 text-center text-muted-foreground font-sans text-xs">
+                                    暂无模型调用数据
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var m in modelStats.Take(8))
+                            {
+                                <tr class="hover:bg-muted/30">
+                                    <td class="py-2 font-sans font-medium text-foreground truncate max-w-[140px]" title="@m.Model">@m.Model</td>
+                                    <td class="py-2 text-right">@m.RequestCount.ToString("N0")</td>
+                                    <td class="py-2 text-right text-primary">@FormatTokens(m.TotalTokens)</td>
+                                    <td class="py-2 text-right text-foreground">$@m.TotalCost</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Provider Stats Table -->
+        <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between border-b border-border/40 pb-2.5">
+                <h3 class="font-bold text-xs text-foreground">服务商调用排行 (Provider Stats)</h3>
+                <span class="text-[10px] text-muted-foreground">各端点活跃度</span>
+            </div>
+
+            <div class="overflow-x-auto text-xs flex-1">
+                <table class="w-full text-left">
+                    <thead class="text-muted-foreground text-[10px] border-b border-border/30">
+                        <tr>
+                            <th class="pb-2 font-medium">服务商</th>
+                            <th class="pb-2 font-medium text-right">调用数</th>
+                            <th class="pb-2 font-medium text-right">总 Tokens</th>
+                            <th class="pb-2 font-medium text-right">均耗时</th>
+                            <th class="pb-2 font-medium text-right">成功率</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border/20 font-mono text-[11px]">
+                        @if (!providerStats.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="py-6 text-center text-muted-foreground font-sans text-xs">
+                                    暂无服务商调用数据
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var p in providerStats.Take(8))
+                            {
+                                <tr class="hover:bg-muted/30">
+                                    <td class="py-2 font-sans font-medium text-foreground flex items-center gap-1.5 truncate max-w-[120px]">
+                                        <ProviderIcon Name="@p.ProviderName" Size="14" />
+                                        <span class="truncate">@p.ProviderName</span>
+                                    </td>
+                                    <td class="py-2 text-right">@p.RequestCount.ToString("N0")</td>
+                                    <td class="py-2 text-right text-primary">@FormatTokens(p.TotalTokens)</td>
+                                    <td class="py-2 text-right text-muted-foreground">@(p.AvgLatencyMs)ms</td>
+                                    <td class="py-2 text-right text-emerald-500">@((p.SuccessRate * 100).ToString("F0"))%</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Request Stream Logs -->
+    <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm">
+        <div class="flex items-center justify-between border-b border-border/40 pb-2.5">
+            <h3 class="font-bold text-xs text-foreground flex items-center gap-2">
+                <span>实时请求调用流水日志</span>
+                <span class="text-[10px] font-normal text-muted-foreground">(最近 15 笔调用流水)</span>
+            </h3>
+        </div>
+
+        <div class="overflow-x-auto text-xs">
+            <table class="w-full text-left">
+                <thead class="text-muted-foreground text-[10px] border-b border-border/30">
+                    <tr>
+                        <th class="pb-2 font-medium">时间</th>
+                        <th class="pb-2 font-medium">应用 / 服务商</th>
+                        <th class="pb-2 font-medium">请求模型</th>
+                        <th class="pb-2 font-medium text-center">状态码</th>
+                        <th class="pb-2 font-medium text-right">输入 / 输出 / 缓存 Tokens</th>
+                        <th class="pb-2 font-medium text-right">耗时</th>
+                        <th class="pb-2 font-medium text-right">费用</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border/20 font-mono text-[11px]">
+                    @if (!requestLogs.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-muted-foreground font-sans text-xs">
+                                暂无请求流水记录
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var log in requestLogs)
+                        {
+                            var timeStr = DateTimeOffset.FromUnixTimeSeconds(log.CreatedAt).ToLocalTime().ToString("HH:mm:ss");
+                            bool isOk = log.StatusCode >= 200 && log.StatusCode < 300;
+                            <tr class="hover:bg-muted/30">
+                                <td class="py-2.5 text-muted-foreground">@timeStr</td>
+                                <td class="py-2.5 font-sans font-medium text-foreground flex items-center gap-1.5">
+                                    <span class="text-[10px] px-1 rounded bg-muted text-muted-foreground uppercase">@log.AppType</span>
+                                    <span>@(log.ProviderName ?? log.ProviderId)</span>
+                                </td>
+                                <td class="py-2.5 font-medium text-foreground truncate max-w-[150px]">@log.Model</td>
+                                <td class="py-2.5 text-center">
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold @(isOk ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500")">
+                                        @log.StatusCode
+                                    </span>
+                                </td>
+                                <td class="py-2.5 text-right text-muted-foreground">
+                                    <span class="text-foreground">@FormatTokens(log.InputTokens)</span> / 
+                                    <span class="text-primary font-semibold">@FormatTokens(log.OutputTokens)</span> / 
+                                    <span class="text-emerald-500">@FormatTokens(log.CacheReadTokens)</span>
+                                </td>
+                                <td class="py-2.5 text-right text-muted-foreground">@(log.LatencyMs)ms</td>
+                                <td class="py-2.5 text-right font-semibold text-foreground">$@log.TotalCostUsd</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string selectedApp = "all";
+    private string selectedRange = "today";
+    private bool isLoading = false;
+
+    private UsageSummaryDto summary = new();
+    private List<DailyStatsDto> trends = new();
+    private List<ModelStatsDto> modelStats = new();
+    private List<ProviderStatsDto> providerStats = new();
+    private List<RequestLogDto> requestLogs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAllAsync();
+    }
+
+    private async Task ChangeApp(string app)
+    {
+        selectedApp = app;
+        await ReloadAllAsync();
+    }
+
+    private async Task ChangeRange(string range)
+    {
+        selectedRange = range;
+        await ReloadAllAsync();
+    }
+
+    private (long? start, long? end) GetTimestampsForRange(string range)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return range switch
+        {
+            "today" => (new DateTimeOffset(now.Date).ToUnixTimeSeconds(), now.ToUnixTimeSeconds()),
+            "7d" => (now.AddDays(-7).ToUnixTimeSeconds(), now.ToUnixTimeSeconds()),
+            "30d" => (now.AddDays(-30).ToUnixTimeSeconds(), now.ToUnixTimeSeconds()),
+            _ => (null, null)
+        };
+    }
+
+    private async Task ReloadAllAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var (start, end) = GetTimestampsForRange(selectedRange);
+            string? app = selectedApp == "all" ? null : selectedApp;
+
+            summary = await UsageService.GetUsageSummaryAsync(start, end, app);
+            trends = await UsageService.GetUsageTrendsAsync(start, end, app);
+            modelStats = await UsageService.GetModelStatsAsync(start, end, app);
+            providerStats = await UsageService.GetProviderStatsAsync(start, end, app);
+
+            var filters = new LogFiltersDto
+            {
+                StartDate = start,
+                EndDate = end,
+                AppType = app
+            };
+            var paginated = await UsageService.GetRequestLogsAsync(filters, page: 0, pageSize: 15);
+            requestLogs = paginated?.Data ?? new List<RequestLogDto>();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[UsageDashboard] Error loading stats: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string FormatTokens(ulong tokens)
+    {
+        if (tokens >= 1_000_000)
+            return $"{(tokens / 1_000_000.0):F2}M";
+        if (tokens >= 1_000)
+            return $"{(tokens / 1_000.0):F1}K";
+        return tokens.ToString("N0");
+    }
+}
+

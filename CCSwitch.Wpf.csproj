@@ -1,8 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -10,13 +10,14 @@
     <AssemblyName>CCSwitch</AssemblyName>
     <RootNamespace>CCSwitch.Wpf</RootNamespace>
     <Product>CC Switch for Windows</Product>
-    <Description>WPF + WebView2 Native Host for CC Switch</Description>
-    <Version>3.20.3</Version>
+    <Description>WPF + Blazor Hybrid Native Host for CC Switch</Description>
+    <Version>3.21.0</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.100" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="Dapper" Version="2.1.79" />
@@ -25,10 +26,12 @@
   <ItemGroup>
     <Resource Include="icon.ico" />
     <Resource Include="icon.png" />
-    <EmbeddedResource Include="Bridge\TauriShim.js" />
-    <None Update="Bridge\TauriShim.js">
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="wwwroot\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
 
 </Project>

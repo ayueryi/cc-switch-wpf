@@ -1,0 +1,70 @@
+@inject AppStateService AppState
+@inject ProviderStateService ProviderState
+@implements IDisposable
+
+<div class="inline-flex bg-muted rounded-xl p-1 gap-1 select-none">
+    @foreach (var app in Apps)
+    {
+        bool isActive = AppState.CurrentApp == app.Id;
+        <button type="button"
+                @onclick="() => SwitchApp(app.Id)"
+                title="@app.Name"
+                aria-label="@app.Name"
+                class="group inline-flex items-center justify-center px-3 h-8 rounded-md text-sm font-medium transition-all duration-200 @(isActive ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-background/50")">
+            <span class="relative inline-flex shrink-0 items-center justify-center">
+                <img src="@app.IconPath"
+                     width="20"
+                     height="20"
+                     class="w-5 h-5 object-contain @(app.Id == "codex" ? "dark:brightness-0 dark:invert" : "")"
+                     alt="@app.Name" />
+
+                @if (app.HasTerminalBadge)
+                {
+                    <span class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-[3px] border h-[11px] w-[11px] @(isActive ? "bg-background border-border text-foreground" : "bg-muted border-background text-muted-foreground group-hover:bg-background group-hover:text-foreground")">
+                        <svg class="h-[8px] w-[8px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="4 17 10 11 4 5"></polyline>
+                            <line x1="12" y1="19" x2="20" y2="19"></line>
+                        </svg>
+                    </span>
+                }
+            </span>
+        </button>
+    }
+</div>
+
+@code {
+    private record AppItem(string Id, string Name, string IconPath, bool HasTerminalBadge = false);
+
+    private readonly List<AppItem> Apps = new()
+    {
+        new("claude", "Claude Code", "icons/claude.svg", true),
+        new("codex", "Codex", "icons/openai.svg"),
+        new("grokbuild", "Grok Build", "icons/grok.svg"),
+        new("opencode", "OpenCode", "icons/opencode-logo-light.svg"),
+        new("antigravity", "Antigravity", "icons/google.svg")
+    };
+
+    protected override void OnInitialized()
+    {
+        AppState.OnStateChanged += HandleUpdate;
+    }
+
+    private void HandleUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SwitchApp(string appId)
+    {
+        if (AppState.CurrentApp != appId)
+        {
+            AppState.SetCurrentApp(appId);
+            await ProviderState.ReloadAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        AppState.OnStateChanged -= HandleUpdate;
+    }
+}

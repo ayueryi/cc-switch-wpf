@@ -1,0 +1,32 @@
+@inject AppStateService AppState
+@implements IDisposable
+
+<MainLayout>
+    @switch (AppState.CurrentView)
+    {
+        case "settings":
+            <SettingsPage />
+            break;
+        case "providers":
+        default:
+            <ProviderListPage />
+            break;
+    }
+</MainLayout>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AppState.OnStateChanged += HandleUpdate;
+    }
+
+    private void HandleUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AppState.OnStateChanged -= HandleUpdate;
+    }
+}

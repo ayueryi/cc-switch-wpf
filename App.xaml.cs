@@ -1,38 +1,77 @@
 using System.Windows;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using CCSwitch.Wpf.Services;
+using CCSwitch.Wpf.Services.State;
 
 namespace CCSwitch.Wpf;
 
 public partial class App : System.Windows.Application
 {
+    public static IServiceProvider Services { get; private set; } = null!;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // 1. Hook UI thread unhandled exceptions
         DispatcherUnhandledException += App_DispatcherUnhandledException;
-
-        // 2. Hook non-UI thread unhandled exceptions
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-
-        // 3. Hook unobserved task exceptions
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        LoggerService.Instance.Info("App", $"=== CC Switch Application Starting (PID: {Environment.ProcessId}, OS: {Environment.OSVersion}, .NET: {Environment.Version}) ===");
-        LoggerService.Instance.Info("App", $"Log destination: {LoggerService.Instance.GetCurrentLogFilePath()}");
-    }
+        LoggerService.Instance.Info("App", $"=== CC Switch Starting (Blazor Hybrid, PID: {Environment.ProcessId}) ===");
 
-    protected override void OnExit(ExitEventArgs e)
-    {
-        LoggerService.Instance.Info("App", $"=== CC Switch Application Exiting (ExitCode: {e.ApplicationExitCode}) ===");
-        base.OnExit(e);
+        var services = new ServiceCollection();
+        services.AddWpfBlazorWebView();
+
+        // 1. Initialize & Register Native Backend Services
+        var dbService = new DatabaseService();
+        dbService.Initialize();
+        var settingsService = new SettingsService(dbService);
+        var liveConfigService = new LiveConfigService();
+        var providerService = new ProviderService(dbService, settingsService, liveConfigService);
+        var mcpService = new McpService(dbService);
+        var authService = new AuthService();
+        var sessionService = new SessionService();
+        var usageService = new UsageService(dbService);
+        var sysService = new SystemIntegrationService();
+        var profileService = new ProfileService(dbService);
+        var streamService = new StreamCheckService(dbService, providerService);
+        var cloudSyncService = new CloudSyncService(dbService, providerService, mcpService);
+        var liveImportService = new LiveImportService(providerService, mcpService);
+
+        services.AddSingleton(dbService);
+        services.AddSingleton(settingsService);
+        services.AddSingleton(liveConfigService);
+        services.AddSingleton(providerService);
+        services.AddSingleton(mcpService);
+        services.AddSingleton(authService);
+        services.AddSingleton(sessionService);
+        services.AddSingleton(usageService);
+        services.AddSingleton(sysService);
+        services.AddSingleton(profileService);
+        services.AddSingleton(streamService);
+        services.AddSingleton(cloudSyncService);
+        services.AddSingleton(liveImportService);
+
+        // 2. Register Blazor State & Window Services
+        services.AddSingleton<AppStateService>();
+        services.AddSingleton<ThemeStateService>();
+        services.AddSingleton<WindowNativeService>();
+        services.AddSingleton<ProviderStateService>();
+        services.AddSingleton<McpStateService>();
+
+        Services = services.BuildServiceProvider();
+        Resources.Add("services", Services);
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        LoggerService.Instance.Error("App:Dispatcher", $"Unhandled UI Exception: {e.Exception.Message}", e.Exception);
-        // Prevent crash if recoverable, but ensure logged
+        var ex = e.Exception;
+        var fullMsg = ex.InnerException != null 
+            ? $"{ex.Message} -> Inner: {ex.InnerException.Message}\nStack: {ex.InnerException.StackTrace}" 
+            : $"{ex.Message}\nStack: {ex.StackTrace}";
+        
+        LoggerService.Instance.Error("App:Dispatcher", $"Unhandled UI Exception: {fullMsg}", ex);
         e.Handled = true;
     }
 
@@ -40,11 +79,10 @@ public partial class App : System.Windows.Application
     {
         if (e.ExceptionObject is Exception ex)
         {
-            LoggerService.Instance.Error("App:AppDomain", $"Fatal Unhandled Domain Exception (IsTerminating: {e.IsTerminating}): {ex.Message}", ex);
-        }
-        else
-        {
-            LoggerService.Instance.Error("App:AppDomain", $"Fatal Unhandled Domain Exception (IsTerminating: {e.IsTerminating}): {e.ExceptionObject}");
+            var fullMsg = ex.InnerException != null 
+                ? $"{ex.Message} -> Inner: {ex.InnerException.Message}\nStack: {ex.InnerException.StackTrace}" 
+                : $"{ex.Message}\nStack: {ex.StackTrace}";
+            LoggerService.Instance.Error("App:AppDomain", $"Fatal Domain Exception (IsTerminating: {e.IsTerminating}): {fullMsg}", ex);
         }
     }
 

@@ -1,0 +1,215 @@
+@inject SessionService SessionService
+@inject AppStateService AppState
+
+<div class="h-full w-full flex overflow-hidden p-6 gap-5 select-none">
+    <!-- Left: Session List -->
+    <div class="w-80 flex flex-col bg-card border border-border/60 rounded-xl p-3.5 flex-shrink-0">
+        <!-- Search & Refresh Bar -->
+        <div class="flex items-center gap-2 mb-3 flex-shrink-0">
+            <div class="relative flex-1">
+                <svg class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text"
+                       placeholder="搜索历史会话..."
+                       class="w-full pl-8 pr-3 py-1.5 text-xs bg-muted/50 border border-border/60 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                       @bind="searchQuery"
+                       @bind:event="oninput" />
+            </div>
+
+            <button type="button"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors border border-border/60"
+                    @onclick="ReloadSessions"
+                    title="刷新会话">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 21h5v-5"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Session List Container -->
+        <div class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+            @if (isLoading)
+            {
+                <div class="h-32 flex items-center justify-center text-muted-foreground text-xs">
+                    <span>正在扫描历史会话...</span>
+                </div>
+            }
+            else if (!FilteredSessions.Any())
+            {
+                <div class="h-32 flex items-center justify-center text-muted-foreground text-xs text-center px-4">
+                    <span>未找到匹配的会话记录</span>
+                </div>
+            }
+            else
+            {
+                @foreach (var session in FilteredSessions)
+                {
+                    bool isSelected = selectedSession?.SessionId == session.SessionId;
+                    <div class="@(isSelected ? "bg-primary/10 border-primary text-foreground shadow-sm" : "bg-muted/30 hover:bg-muted/60 border-border/50 text-muted-foreground hover:text-foreground") p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5"
+                         @onclick="() => SelectSession(session)">
+                        <div class="flex items-center justify-between gap-1.5">
+                            <span class="font-semibold text-xs truncate text-foreground flex-1">
+                                @(string.IsNullOrEmpty(session.Title) ? $"会话 {session.SessionId[..Math.Min(8, session.SessionId.Length)]}" : session.Title)
+                            </span>
+                            <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted border border-border/40 text-muted-foreground shrink-0">
+                                @session.ProviderId
+                            </span>
+                        </div>
+                        <p class="text-[10px] text-muted-foreground truncate font-mono">
+                            @(session.ProjectDir ?? "工作区")
+                        </p>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Right: Message Detail Viewer -->
+    <div class="flex-1 flex flex-col bg-card border border-border/60 rounded-xl p-5 overflow-hidden">
+        @if (selectedSession == null)
+        {
+            <div class="h-full flex flex-col items-center justify-center text-muted-foreground text-xs gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                </div>
+                <span>在左侧选择一个会话以查看历史消息记录</span>
+            </div>
+        }
+        else
+        {
+            <!-- Detail Header -->
+            <div class="flex items-center justify-between pb-3.5 border-b border-border/40 flex-shrink-0">
+                <div class="min-w-0">
+                    <h3 class="font-bold text-sm text-foreground truncate">
+                        @(string.IsNullOrEmpty(selectedSession.Title) ? selectedSession.SessionId : selectedSession.Title)
+                    </h3>
+                    <p class="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+                        工作目录: @(selectedSession.ProjectDir ?? "默认路径")
+                    </p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedSession.ResumeCommand))
+                {
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-muted text-[11px] font-mono text-muted-foreground border border-border/60">
+                        <span>CLI 恢复:</span>
+                        <code class="text-primary font-semibold">@selectedSession.ResumeCommand</code>
+                    </div>
+                }
+            </div>
+
+            <!-- Messages Timeline -->
+            <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2 text-xs">
+                @if (isLoadingMessages)
+                {
+                    <div class="h-32 flex items-center justify-center text-muted-foreground text-xs">
+                        <span>正在加载会话消息...</span>
+                    </div>
+                }
+                else if (!messages.Any())
+                {
+                    <div class="h-32 flex items-center justify-center text-muted-foreground text-xs">
+                        <span>该会话暂无详细消息文本</span>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var msg in messages)
+                    {
+                        bool isUser = msg.Role.ToLowerInvariant() == "user";
+                        <div class="flex flex-col @(isUser ? "items-end" : "items-start") space-y-1.5">
+                            <div class="flex items-center gap-1.5 px-1">
+                                <span class="text-[10px] text-muted-foreground font-mono uppercase font-semibold">
+                                    @msg.Role
+                                </span>
+                            </div>
+                            <div class="@(isUser ? "bg-primary text-primary-foreground font-medium" : "bg-muted/80 text-foreground border border-border/60") max-w-[85%] rounded-2xl px-4 py-2.5 whitespace-pre-wrap leading-relaxed shadow-sm">
+                                @msg.Content
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<SessionMetaDto> sessions = new();
+    private SessionMetaDto? selectedSession;
+    private List<SessionMessageDto> messages = new();
+    private string searchQuery = "";
+    private bool isLoading = true;
+    private bool isLoadingMessages = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadSessions();
+    }
+
+    private async Task ReloadSessions()
+    {
+        isLoading = true;
+        try
+        {
+            sessions = await SessionService.ScanSessionsAsync();
+            if (selectedSession != null)
+            {
+                selectedSession = sessions.FirstOrDefault(s => s.SessionId == selectedSession.SessionId);
+            }
+        }
+        catch
+        {
+            sessions = new List<SessionMetaDto>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<SessionMetaDto> FilteredSessions
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                return sessions;
+            }
+
+            return sessions.Where(s =>
+                (s.Title?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (s.ProjectDir?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                s.SessionId.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private async Task SelectSession(SessionMetaDto session)
+    {
+        selectedSession = session;
+        messages.Clear();
+
+        if (!string.IsNullOrEmpty(session.SourcePath))
+        {
+            isLoadingMessages = true;
+            try
+            {
+                messages = await SessionService.GetSessionMessagesAsync(session.SourcePath);
+            }
+            catch
+            {
+                messages = new List<SessionMessageDto>();
+            }
+            finally
+            {
+                isLoadingMessages = false;
+            }
+        }
+    }
+}

@@ -1,0 +1,308 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject ProviderStateService ProviderState
+@inject AppStateService AppState
+
+<Dialog IsOpen="IsOpen"
+        Title="@(ExistingProvider == null ? "添加服务商 (Add Provider)" : "编辑服务商 (Edit Provider)")"
+        Description="配置大语言模型 API 端点、密钥与预设模型"
+        OnClose="CloseModal">
+
+    <div class="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-1 text-xs">
+        <!-- Preset Quick Chips (Only for new provider) -->
+        @if (ExistingProvider == null)
+        {
+            <div class="space-y-1.5">
+                <label class="font-medium text-foreground/80 flex items-center justify-between">
+                    <span>快速选取主流服务商预设:</span>
+                    <span class="text-[10px] text-muted-foreground">点击自动填充常用端点与配置</span>
+                </label>
+                <div class="flex flex-wrap gap-1.5">
+                    @foreach (var preset in Presets)
+                    {
+                        <button type="button"
+                                @onclick="() => ApplyPreset(preset)"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-all hover:bg-muted/80 @(selectedPresetId == preset.Id ? "bg-primary/10 border-primary text-primary font-medium" : "border-border/60 text-muted-foreground hover:text-foreground bg-card")">
+                            <ProviderIcon Name="@preset.Name" Icon="@preset.Icon" Size="14" />
+                            <span>@preset.Name</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Basic Form Fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+                <label class="font-medium text-foreground/80">服务商名称 <span class="text-red-500">*</span></label>
+                <Input @bind-Value="formName" Placeholder="例如: DeepSeek 官方" />
+            </div>
+
+            <div class="space-y-1">
+                <label class="font-medium text-foreground/80">分类标识 (Category)</label>
+                <Input @bind-Value="formCategory" Placeholder="例如: custom / deepseek / openai" />
+            </div>
+        </div>
+
+        <!-- API Base URL -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">API 端点 (Base URL) <span class="text-red-500">*</span></label>
+            <Input @bind-Value="formBaseUrl" Placeholder="例如: https://api.deepseek.com/v1" />
+        </div>
+
+        <!-- API Key with Eye Toggle -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">API 密钥 (API Key / Auth Token)</label>
+            <div class="relative">
+                <input type="@(showApiKey ? "text" : "password")"
+                       class="w-full px-3 py-2 pr-9 text-xs bg-muted/50 border border-border/80 rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all font-mono"
+                       placeholder="sk-..."
+                       
+                       @bind="formApiKey" @bind:event="oninput" />
+                <button type="button"
+                        class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                        @onclick="() => showApiKey = !showApiKey"
+                        title="@(showApiKey ? "隐藏密钥" : "查看明文")">
+                    @if (showApiKey)
+                    {
+                        <!-- Eye Off Icon -->
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                    }
+                    else
+                    {
+                        <!-- Eye Icon -->
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    }
+                </button>
+            </div>
+        </div>
+
+        <!-- Optional Notes & Website URL -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+                <label class="font-medium text-foreground/80">备注说明 (Notes)</label>
+                <Input @bind-Value="formNotes" Placeholder="备注信息或模型版本" />
+            </div>
+
+            <div class="space-y-1">
+                <label class="font-medium text-foreground/80">官网地址 (Website URL)</label>
+                <Input @bind-Value="formWebsite" Placeholder="https://..." />
+            </div>
+        </div>
+
+        <!-- Custom Config JSON (Accordion/Advanced) -->
+        <div class="space-y-1 pt-1">
+            <button type="button"
+                    class="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+                    @onclick="() => showAdvancedJson = !showAdvancedJson">
+                <svg class="w-3 h-3 transition-transform @(showAdvancedJson ? "rotate-90" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+                <span>高级配置 (Settings JSON)</span>
+            </button>
+
+            @if (showAdvancedJson)
+            {
+                <div class="mt-2 space-y-1">
+                    <textarea class="w-full h-28 p-2.5 text-[11px] font-mono bg-muted/60 border border-border/80 rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-y"
+                              placeholder='{"env": {"ANTHROPIC_BASE_URL": "..."}}'
+                              @bind="formConfigJson"></textarea>
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="text-[11px] text-destructive font-medium bg-destructive/10 p-2 rounded border border-destructive/20">
+                @errorMessage
+            </div>
+        }
+    </div>
+
+    <div class="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
+        <Button Variant="outline" Size="sm" OnClick="CloseModal">取消</Button>
+        <Button Variant="default" Size="sm" OnClick="SaveProvider" Disabled="@isSaving">
+            @(isSaving ? "正在保存..." : (ExistingProvider == null ? "立即添加" : "保存修改"))
+        </Button>
+    </div>
+</Dialog>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public ProviderDto? ExistingProvider { get; set; }
+
+    private string formName = "";
+    private string formCategory = "custom";
+    private string formBaseUrl = "";
+    private string formApiKey = "";
+    private string formNotes = "";
+    private string formWebsite = "";
+    private string formConfigJson = "{}";
+    private bool showApiKey = false;
+    private bool showAdvancedJson = false;
+    private bool isSaving = false;
+    private string errorMessage = "";
+    private string selectedPresetId = "";
+
+    private record PresetOption(string Id, string Name, string Icon, string BaseUrl, string Category, string Website);
+
+    private readonly List<PresetOption> Presets = new()
+    {
+        new("anthropic", "Anthropic 官方", "anthropic", "https://api.anthropic.com", "official", "https://anthropic.com"),
+        new("openai", "OpenAI 官方", "openai", "https://api.openai.com/v1", "official", "https://openai.com"),
+        new("deepseek", "DeepSeek", "deepseek", "https://api.deepseek.com/v1", "deepseek", "https://deepseek.com"),
+        new("zhipu", "智谱 GLM", "zhipu", "https://open.bigmodel.cn/api/paas/v4", "zhipu", "https://bigmodel.cn"),
+        new("siliconflow", "硅基流动", "siliconflow", "https://api.siliconflow.cn/v1", "siliconflow", "https://siliconflow.cn"),
+        new("openrouter", "OpenRouter", "openrouter", "https://openrouter.ai/api/v1", "openrouter", "https://openrouter.ai"),
+        new("grok", "xAI Grok", "grok", "https://api.x.ai/v1", "xai", "https://x.ai"),
+        new("kimi", "Moonshot Kimi", "kimi", "https://api.moonshot.cn/v1", "kimi", "https://moonshot.cn"),
+        new("qwen", "通义千问 (百炼)", "qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1", "alibaba", "https://bailian.console.aliyun.com")
+    };
+
+    protected override void OnParametersSet()
+    {
+        errorMessage = "";
+        selectedPresetId = "";
+        showApiKey = false;
+        showAdvancedJson = false;
+
+        if (ExistingProvider != null)
+        {
+            formName = ExistingProvider.Name;
+            formCategory = ExistingProvider.Category ?? "custom";
+            formBaseUrl = ExistingProvider.SettingsConfig.TryGetProperty("baseUrl", out var bu) ? bu.GetString() ?? "" : "";
+            if (string.IsNullOrEmpty(formBaseUrl) && ExistingProvider.SettingsConfig.TryGetProperty("env", out var env))
+            {
+                if (env.TryGetProperty("ANTHROPIC_BASE_URL", out var abu)) formBaseUrl = abu.GetString() ?? "";
+            }
+            formApiKey = ExistingProvider.SettingsConfig.TryGetProperty("apiKey", out var ak) ? ak.GetString() ?? "" : "";
+            formNotes = ExistingProvider.Notes ?? "";
+            formWebsite = ExistingProvider.WebsiteUrl ?? "";
+            formConfigJson = ExistingProvider.SettingsConfig.GetRawText();
+        }
+        else
+        {
+            formName = "";
+            formCategory = "custom";
+            formBaseUrl = "";
+            formApiKey = "";
+            formNotes = "";
+            formWebsite = "";
+            formConfigJson = "{}";
+        }
+    }
+
+    private void ApplyPreset(PresetOption preset)
+    {
+        selectedPresetId = preset.Id;
+        formName = preset.Name;
+        formCategory = preset.Category;
+        formBaseUrl = preset.BaseUrl;
+        formWebsite = preset.Website;
+        if (string.IsNullOrEmpty(formNotes))
+        {
+            formNotes = $"{preset.Name} 端点配置";
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task SaveProvider()
+    {
+        if (string.IsNullOrWhiteSpace(formName))
+        {
+            errorMessage = "服务商名称不能为空";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = "";
+
+        try
+        {
+            var configObj = new JsonObject();
+            if (!string.IsNullOrEmpty(formBaseUrl))
+            {
+                configObj["baseUrl"] = formBaseUrl.Trim();
+                var envObj = new JsonObject
+                {
+                    ["ANTHROPIC_BASE_URL"] = formBaseUrl.Trim()
+                };
+                configObj["env"] = envObj;
+            }
+            if (!string.IsNullOrEmpty(formApiKey))
+            {
+                configObj["apiKey"] = formApiKey.Trim();
+                var authObj = new JsonObject
+                {
+                    ["OPENAI_API_KEY"] = formApiKey.Trim(),
+                    ["ANTHROPIC_API_KEY"] = formApiKey.Trim()
+                };
+                configObj["auth"] = authObj;
+            }
+
+            // Merge existing config if present
+            if (!string.IsNullOrWhiteSpace(formConfigJson) && formConfigJson.Trim() != "{}")
+            {
+                try
+                {
+                    var parsed = JsonNode.Parse(formConfigJson);
+                    if (parsed is JsonObject customObj)
+                    {
+                        foreach (var kvp in customObj)
+                        {
+                            configObj[kvp.Key] = kvp.Value?.DeepClone();
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            var configElement = JsonDocument.Parse(configObj.ToJsonString()).RootElement;
+
+            if (ExistingProvider == null)
+            {
+                await ProviderState.AddProviderAsync(
+                    formName.Trim(),
+                    formCategory.Trim(),
+                    configElement,
+                    formNotes.Trim(),
+                    formWebsite.Trim()
+                );
+            }
+            else
+            {
+                await ProviderState.UpdateProviderAsync(
+                    ExistingProvider.Id,
+                    formName.Trim(),
+                    formCategory.Trim(),
+                    configElement,
+                    formNotes.Trim(),
+                    formWebsite.Trim()
+                );
+            }
+
+            await CloseModal();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"保存异常: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+
+

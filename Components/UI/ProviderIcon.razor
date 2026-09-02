@@ -1,0 +1,80 @@
+<span class="inline-flex items-center justify-center flex-shrink-0 @ClassName" style="width: @(Size)px; height: @(Size)px;">
+    @if (!string.IsNullOrEmpty(ResolvedIconPath))
+    {
+        <img src="@ResolvedIconPath"
+             alt="@Name"
+             title="@Name"
+             class="w-full h-full object-contain @(IsDarkInvert ? "dark:brightness-0 dark:invert" : "")"
+             loading="lazy" />
+    }
+    else
+    {
+        <span class="w-full h-full rounded-lg bg-muted text-muted-foreground font-semibold flex items-center justify-center text-xs">
+            @Initials
+        </span>
+    }
+</span>
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 32;
+    [Parameter] public string ClassName { get; set; } = "";
+
+    private string? ResolvedIconPath
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Icon))
+            {
+                var iconName = Icon.Trim().ToLowerInvariant();
+                if (iconName.EndsWith(".svg") || iconName.EndsWith(".png") || iconName.EndsWith(".webp"))
+                {
+                    return $"icons/{iconName}";
+                }
+                return $"icons/{iconName}.svg";
+            }
+
+            // Keyword auto-detection
+            var n = Name.ToLowerInvariant();
+            if (n.Contains("deepseek")) return "icons/deepseek.svg";
+            if (n.Contains("claude") || n.Contains("anthropic")) return "icons/claude.svg";
+            if (n.Contains("openai") || n.Contains("gpt") || n.Contains("codex")) return "icons/openai.svg";
+            if (n.Contains("google") || n.Contains("gemini")) return "icons/google.svg";
+            if (n.Contains("zhipu") || n.Contains("智谱") || n.Contains("glm")) return "icons/zhipu.svg";
+            if (n.Contains("siliconflow") || n.Contains("硅基")) return "icons/siliconflow.svg";
+            if (n.Contains("openrouter")) return "icons/openrouter.svg";
+            if (n.Contains("grok") || n.Contains("xai")) return "icons/grok.svg";
+            if (n.Contains("kimi") || n.Contains("moonshot")) return "icons/kimi.svg";
+            if (n.Contains("qwen") || n.Contains("通义") || n.Contains("ali") || n.Contains("bailian")) return "icons/qwen.svg";
+            if (n.Contains("baidu") || n.Contains("wenxin") || n.Contains("千帆")) return "icons/baidu.svg";
+            if (n.Contains("copilot") || n.Contains("github")) return "icons/githubcopilot.svg";
+            if (n.Contains("minimax")) return "icons/minimax.svg";
+            if (n.Contains("mistral")) return "icons/mistral.svg";
+            if (n.Contains("doubao") || n.Contains("bytedance") || n.Contains("火山")) return "icons/doubao.svg";
+            if (n.Contains("opencode")) return "icons/opencode-logo-light.svg";
+            if (n.Contains("mcp")) return "icons/mcp.svg";
+
+            return null;
+        }
+    }
+
+    private bool IsDarkInvert =>
+        ResolvedIconPath?.Contains("openai.svg") == true ||
+        ResolvedIconPath?.Contains("copilot.svg") == true ||
+        ResolvedIconPath?.Contains("github.svg") == true;
+
+    private string Initials
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Name)) return "?";
+            var parts = Name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 1)
+            {
+                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            }
+            return Name[..Math.Min(2, Name.Length)].ToUpper();
+        }
+    }
+}

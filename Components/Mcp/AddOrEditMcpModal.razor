@@ -1,0 +1,243 @@
+@using System.Text.Json
+@inject McpStateService McpState
+
+<Dialog IsOpen="@IsOpen"
+        IsOpenChanged="@IsOpenChanged"
+        Title="@(IsEditing ? "编辑 MCP 服务器" : "添加 MCP 服务器")"
+        Description="配置基于 Model Context Protocol (MCP) 的外部工具扩展"
+        OnClose="@HandleClose">
+    <ChildContent>
+        <!-- ID -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">唯一标识 (ID) *</label>
+            <Input @bind-Value="id"
+                   Placeholder="例如: filesystem, github, postgres"
+                   Disabled="@IsEditing" />
+        </div>
+
+        <!-- Name -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">服务名称 *</label>
+            <Input @bind-Value="name"
+                   Placeholder="例如: Local Filesystem Tools" />
+        </div>
+
+        <!-- Description -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">描述说明</label>
+            <Input @bind-Value="description"
+                   Placeholder="例如: 提供本地安全目录的读写与检索能力" />
+        </div>
+
+        <!-- Command -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">执行命令 (Command / Executable) *</label>
+            <Input @bind-Value="command"
+                   Placeholder="例如: npx, node, docker, python" />
+        </div>
+
+        <!-- Args -->
+        <div class="space-y-1">
+            <label class="font-medium text-foreground/80">启动参数 (以空格或逗号分隔)</label>
+            <Input @bind-Value="args"
+                   Placeholder="例如: -y @@modelcontextprotocol/server-filesystem C:\repos" />
+        </div>
+
+        <!-- Enabled Apps -->
+        <div class="space-y-1.5 pt-2 border-t border-border/40">
+            <label class="font-medium text-foreground/80 block">启用的应用范围</label>
+            <div class="flex items-center gap-4 text-xs">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <Switch @bind-Value="enableClaude" />
+                    <span>Claude</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <Switch @bind-Value="enableCodex" />
+                    <span>Codex</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                    <Switch @bind-Value="enableOpencode" />
+                    <span>OpenCode</span>
+                </label>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="p-2 rounded-md bg-destructive/10 text-destructive text-[11px] border border-destructive/20">
+                @errorMessage
+            </div>
+        }
+    </ChildContent>
+
+    <FooterContent>
+        @if (IsEditing)
+        {
+            <Button Variant="destructive" Size="sm" OnClick="HandleDelete" Class="mr-auto">
+                删除
+            </Button>
+        }
+        <Button Variant="secondary" Size="sm" OnClick="HandleClose">
+            取消
+        </Button>
+        <Button Variant="default" Size="sm" OnClick="HandleSave" Disabled="@isSaving">
+            @(isSaving ? "正在保存..." : "保存配置")
+        </Button>
+    </FooterContent>
+</Dialog>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public McpServerDto? ExistingServer { get; set; }
+
+    private string id = "";
+    private string name = "";
+    private string description = "";
+    private string command = "";
+    private string args = "";
+    private bool enableClaude = true;
+    private bool enableCodex = true;
+    private bool enableOpencode = false;
+
+    private bool IsEditing => ExistingServer != null && !string.IsNullOrEmpty(ExistingServer.Id);
+    private bool isSaving = false;
+    private string errorMessage = "";
+
+    protected override void OnParametersSet()
+    {
+        if (ExistingServer != null)
+        {
+            id = ExistingServer.Id;
+            name = ExistingServer.Name;
+            description = ExistingServer.Description ?? "";
+            
+            enableClaude = ExistingServer.Apps.Claude;
+            enableCodex = ExistingServer.Apps.Codex;
+            enableOpencode = ExistingServer.Apps.Opencode;
+
+            try
+            {
+                if (ExistingServer.Server.TryGetProperty("command", out var c))
+                {
+                    command = c.GetString() ?? "";
+                }
+                if (ExistingServer.Server.TryGetProperty("args", out var a) && a.ValueKind == JsonValueKind.Array)
+                {
+                    args = string.Join(" ", a.EnumerateArray().Select(x => x.GetString()));
+                }
+            }
+            catch
+            {
+                command = "";
+                args = "";
+            }
+        }
+        else
+        {
+            id = "";
+            name = "";
+            description = "";
+            command = "npx";
+            args = "";
+            enableClaude = true;
+            enableCodex = true;
+            enableOpencode = false;
+        }
+        errorMessage = "";
+    }
+
+    private async Task HandleClose()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleSave()
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errorMessage = "请填写 MCP 服务名称";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            id = name.ToLowerInvariant().Replace(" ", "-").Trim();
+        }
+
+        isSaving = true;
+        errorMessage = "";
+
+        try
+        {
+            var argList = string.IsNullOrWhiteSpace(args) 
+                ? new List<string>() 
+                : args.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            var serverObj = new
+            {
+                command = command,
+                args = argList,
+                env = new Dictionary<string, string>()
+            };
+
+            var jsonText = JsonSerializer.Serialize(serverObj);
+            var serverElement = JsonDocument.Parse(jsonText).RootElement.Clone();
+
+            var dto = new McpServerDto
+            {
+                Id = id,
+                Name = name,
+                Description = description,
+                Server = serverElement,
+                Apps = new McpAppsDto
+                {
+                    Claude = enableClaude,
+                    Codex = enableCodex,
+                    Opencode = enableOpencode
+                }
+            };
+
+            var ok = await McpState.SaveServerAsync(dto);
+            if (ok)
+            {
+                await HandleClose();
+            }
+            else
+            {
+                errorMessage = "保存失败，请检查参数";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"保存异常: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (!IsEditing) return;
+
+        try
+        {
+            var ok = await McpState.DeleteServerAsync(id);
+            if (ok)
+            {
+                await HandleClose();
+            }
+            else
+            {
+                errorMessage = "删除失败";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"删除异常: {ex.Message}";
+        }
+    }
+}

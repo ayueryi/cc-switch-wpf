@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
+        xmlns:local="clr-namespace:CCSwitch.Wpf"
         mc:Ignorable="d"
         Title="CC Switch"
         Icon="icon.ico"
@@ -12,11 +13,37 @@
         MinHeight="600"
         MinWidth="900"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="SingleBorderWindow"
+        WindowStyle="None"
+        AllowsTransparency="False"
         Background="#18181b">
 
-    <Grid>
-        <!-- WebView2 Native Control -->
-        <wv2:WebView2 x:Name="WebViewControl" />
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="6"
+                      CornerRadius="0"
+                      GlassFrameThickness="1"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Style>
+        <Style TargetType="Window">
+            <Setter Property="Padding" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="WindowState" Value="Maximized">
+                    <Setter Property="Padding" Value="7"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Style>
+
+    <Grid Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}"
+          Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=Window}}">
+        <blazor:BlazorWebView x:Name="BlazorWebViewControl"
+                              HostPage="wwwroot/index.html"
+                              Services="{DynamicResource services}">
+            <blazor:BlazorWebView.RootComponents>
+                <blazor:RootComponent Selector="#app" ComponentType="{x:Type local:BlazorApp}" />
+            </blazor:BlazorWebView.RootComponents>
+        </blazor:BlazorWebView>
     </Grid>
 </Window>

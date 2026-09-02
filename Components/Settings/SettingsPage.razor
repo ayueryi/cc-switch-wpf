@@ -1,0 +1,168 @@
+@inject SettingsService SettingsService
+@inject ThemeStateService ThemeState
+@inject AppStateService AppState
+
+<div class="h-full w-full flex flex-col p-6 overflow-hidden max-w-5xl mx-auto select-none">
+    <!-- Top 4-Column Glass Tabs List -->
+    <div class="grid w-full grid-cols-4 mb-6 glass rounded-xl p-1 gap-1 flex-shrink-0">
+        <button type="button"
+                @onclick='() => activeTab = "general"'
+                class="inline-flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all @(activeTab == "general" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-background/40")">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>通用设置</span>
+        </button>
+
+        <button type="button"
+                @onclick='() => activeTab = "auth"'
+                class="inline-flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all @(activeTab == "auth" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-background/40")">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>认证中心</span>
+        </button>
+
+        <button type="button"
+                @onclick='() => activeTab = "usage"'
+                class="inline-flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all @(activeTab == "usage" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-background/40")">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>用量统计</span>
+        </button>
+
+        <button type="button"
+                @onclick='() => activeTab = "about"'
+                class="inline-flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all @(activeTab == "about" ? "bg-background text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-background/40")">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+            </svg>
+            <span>关于</span>
+        </button>
+    </div>
+
+    <!-- Tab Content Scrollable Area -->
+    <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+        @switch (activeTab)
+        {
+            case "general":
+                <!-- General Section: Theme & UI -->
+                <div class="glass-card p-5 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-border/40 pb-3">
+                        <div>
+                            <h3 class="font-semibold text-xs text-foreground">外观与色彩主题</h3>
+                            <p class="text-[11px] text-muted-foreground">切换明亮与暗黑视觉主题，实时联动 Windows 11 DWM 系统边框</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-muted-foreground font-mono">@(ThemeState.IsDark ? "Dark 暗黑" : "Light 明亮")</span>
+                            <Switch Value="@ThemeState.IsDark" ValueChanged="@(() => ThemeState.ToggleTheme())" />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between border-b border-border/40 pb-3">
+                        <div>
+                            <h3 class="font-semibold text-xs text-foreground">语言首选项 (Language)</h3>
+                            <p class="text-[11px] text-muted-foreground">应用界面的国际化显示语言</p>
+                        </div>
+                        <div class="text-xs font-mono bg-muted/60 px-3 py-1 rounded-md border border-border/40 text-foreground">
+                            简体中文 (zh-CN)
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-xs text-foreground">系统托盘后台运行</h3>
+                            <p class="text-[11px] text-muted-foreground">关闭窗口时最小化至 Windows 托盘区，支持托盘一键切服务商</p>
+                        </div>
+                        <Switch Value="true" ValueChanged="@(() => {})" />
+                    </div>
+                </div>
+                break;
+
+            case "auth":
+                <!-- Auth Center -->
+                <div class="glass-card p-5 rounded-xl space-y-4">
+                    <div class="border-b border-border/40 pb-3">
+                        <h3 class="font-semibold text-xs text-foreground">官方账户与 OAuth 认证中心</h3>
+                        <p class="text-[11px] text-muted-foreground">管理 Claude Code、OpenAI Codex 与 Google 官方授权凭据</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="p-3.5 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <ProviderIcon Name="Claude" Icon="claude" Size="28" />
+                                <div>
+                                    <div class="font-semibold text-xs text-foreground">Claude Code Official</div>
+                                    <div class="text-[11px] text-muted-foreground font-mono">~/.claude.json 配置文件绑定</div>
+                                </div>
+                            </div>
+                            <Badge Variant="success">已绑定</Badge>
+                        </div>
+
+                        <div class="p-3.5 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <ProviderIcon Name="OpenAI" Icon="openai" Size="28" />
+                                <div>
+                                    <div class="font-semibold text-xs text-foreground">OpenAI Codex Official</div>
+                                    <div class="text-[11px] text-muted-foreground font-mono">~/.codex/config.json 凭证就绪</div>
+                                </div>
+                            </div>
+                            <Badge Variant="success">就绪</Badge>
+                        </div>
+                    </div>
+                </div>
+                break;
+
+            case "usage":
+                <UsageDashboard />
+                break;
+
+            case "about":
+                <div class="glass-card p-6 rounded-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-border/40 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-base">
+                                CC
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-sm text-foreground">CC Switch (Blazor Native)</h3>
+                                <p class="text-[11px] text-muted-foreground">下一代高颜值多模型智能切换引擎</p>
+                            </div>
+                        </div>
+                        <Badge Variant="default">v3.21.0</Badge>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                            <span class="text-muted-foreground text-[10px]">技术架构</span>
+                            <div class="font-semibold text-foreground">WPF (.NET 10) + Blazor Hybrid</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                            <span class="text-muted-foreground text-[10px]">渲染核心</span>
+                            <div class="font-semibold text-foreground">Microsoft Edge WebView2</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                            <span class="text-muted-foreground text-[10px]">样式引擎</span>
+                            <div class="font-semibold text-foreground">Tailwind CSS (独立闭环构建)</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                            <span class="text-muted-foreground text-[10px]">数据存储</span>
+                            <div class="font-semibold text-foreground">SQLite 3 + Dapper (WAL 高速模式)</div>
+                        </div>
+                    </div>
+                </div>
+                break;
+        }
+    </div>
+</div>
+
+@code {
+    private string activeTab = "general";
+}
