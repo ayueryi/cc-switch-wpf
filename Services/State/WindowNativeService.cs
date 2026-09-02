@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Windows;
 using CCSwitch.Wpf.Bridge;
 using WpfApp = System.Windows.Application;
@@ -58,5 +59,21 @@ public class WindowNativeService
         {
             MainWindow?.Close();
         });
+    }
+
+    public void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WindowNativeService] OpenUrl failed: {ex.Message}");
+        }
     }
 }

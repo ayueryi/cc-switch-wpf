@@ -125,39 +125,7 @@
                 break;
 
             case "about":
-                <div class="glass-card p-6 rounded-xl space-y-4">
-                    <div class="flex items-center justify-between border-b border-border/40 pb-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-base">
-                                CC
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-sm text-foreground">CC Switch (Blazor Native)</h3>
-                                <p class="text-[11px] text-muted-foreground">下一代高颜值多模型智能切换引擎</p>
-                            </div>
-                        </div>
-                        <Badge Variant="default">v3.21.0</Badge>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
-                            <span class="text-muted-foreground text-[10px]">技术架构</span>
-                            <div class="font-semibold text-foreground">WPF (.NET 10) + Blazor Hybrid</div>
-                        </div>
-                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
-                            <span class="text-muted-foreground text-[10px]">渲染核心</span>
-                            <div class="font-semibold text-foreground">Microsoft Edge WebView2</div>
-                        </div>
-                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
-                            <span class="text-muted-foreground text-[10px]">样式引擎</span>
-                            <div class="font-semibold text-foreground">Tailwind CSS (独立闭环构建)</div>
-                        </div>
-                        <div class="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
-                            <span class="text-muted-foreground text-[10px]">数据存储</span>
-                            <div class="font-semibold text-foreground">SQLite 3 + Dapper (WAL 高速模式)</div>
-                        </div>
-                    </div>
-                </div>
+                <AboutSection />
                 break;
         }
     </div>

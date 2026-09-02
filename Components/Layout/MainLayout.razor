@@ -2,6 +2,7 @@
 @inject ThemeStateService ThemeState
 @inject AppStateService AppState
 @inject WindowNativeService WindowService
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground @(ThemeState.IsDark ? "dark" : "")">
@@ -9,7 +10,7 @@
     <TitleBar />
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-hidden relative flex flex-col bg-background/50">
+    <main class="flex-1 overflow-hidden relative flex flex-col bg-background">
         @(ChildContent ?? Body)
     </main>
 </div>
@@ -19,20 +20,49 @@
 
     protected override void OnInitialized()
     {
-        ThemeState.OnThemeChanged += HandleUpdate;
-        AppState.OnStateChanged += HandleUpdate;
-        WindowService.OnWindowStateChanged += HandleUpdate;
+        ThemeState.OnThemeChanged += HandleThemeChanged;
+        AppState.OnStateChanged += HandleStateChanged;
+        WindowService.OnWindowStateChanged += HandleStateChanged;
     }
 
-    private void HandleUpdate()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await SyncThemeToDomAsync();
+        }
+    }
+
+    private async void HandleThemeChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            await SyncThemeToDomAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void HandleStateChanged()
     {
         InvokeAsync(StateHasChanged);
     }
 
+    private async Task SyncThemeToDomAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("__setTheme", ThemeState.IsDark);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MainLayout] SyncThemeToDom failed: {ex.Message}");
+        }
+    }
+
     public void Dispose()
     {
-        ThemeState.OnThemeChanged -= HandleUpdate;
-        AppState.OnStateChanged -= HandleUpdate;
-        WindowService.OnWindowStateChanged -= HandleUpdate;
+        ThemeState.OnThemeChanged -= HandleThemeChanged;
+        AppState.OnStateChanged -= HandleStateChanged;
+        WindowService.OnWindowStateChanged -= HandleStateChanged;
     }
 }

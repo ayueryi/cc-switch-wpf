@@ -48,7 +48,12 @@ public partial class MainWindow : Window
 
     private void MainWindow_SourceInitialized(object? sender, EventArgs e)
     {
-        WindowNativeHelper.UpdateTheme(this, true);
+        _themeStateService = App.Services.GetService(typeof(ThemeStateService)) as ThemeStateService;
+        bool isDark = _themeStateService?.IsDark ?? true;
+        WindowNativeHelper.UpdateTheme(this, isDark);
+        Background = isDark
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x18, 0x18, 0x1B))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
     }
 
     private void MainWindow_StateChanged(object? sender, EventArgs e)
@@ -62,7 +67,11 @@ public partial class MainWindow : Window
         {
             _windowNativeService = App.Services.GetService(typeof(WindowNativeService)) as WindowNativeService;
 
-            _themeStateService = App.Services.GetService(typeof(ThemeStateService)) as ThemeStateService;
+            if (_themeStateService == null)
+            {
+                _themeStateService = App.Services.GetService(typeof(ThemeStateService)) as ThemeStateService;
+            }
+
             if (_themeStateService != null)
             {
                 _themeStateService.OnThemeChanged += HandleThemeChanged;

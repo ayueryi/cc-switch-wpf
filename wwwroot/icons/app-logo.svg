@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <!-- Minimalist Black Squircle -->
+  <rect width="512" height="512" rx="128" fill="#09090b" />
+
+  <!-- Ultra-Clean Dual Crescent Switch (2 Pure Geometric Arcs) -->
+  <g>
+    <!-- Left Arc (C) -->
+    <path d="M 224 146 A 110 110 0 1 0 224 366" 
+          stroke="#ffffff" stroke-width="42" stroke-linecap="round" />
+
+    <!-- Right Arc (Inverted C / Switch Flow) -->
+    <path d="M 288 366 A 110 110 0 1 0 288 146" 
+          stroke="#ffffff" stroke-width="42" stroke-linecap="round" opacity="0.92" />
+  </g>
+</svg>

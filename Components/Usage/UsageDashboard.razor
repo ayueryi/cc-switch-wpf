@@ -148,43 +148,8 @@
         </div>
     </div>
 
-    <!-- Daily Usage Trend Visualization -->
-    <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm">
-        <div class="flex items-center justify-between">
-            <h3 class="font-bold text-xs text-foreground flex items-center gap-2">
-                <span>每日用量与吞吐趋势</span>
-                <span class="text-[10px] font-normal text-muted-foreground">(最近周期活跃分布)</span>
-            </h3>
-        </div>
-
-        @if (!trends.Any())
-        {
-            <div class="h-28 flex items-center justify-center text-xs text-muted-foreground">
-                暂无所选时间区间的趋势走势记录
-            </div>
-        }
-        else
-        {
-            var maxTokens = Math.Max(1, trends.Max(t => (long)t.TotalTokens));
-            <div class="space-y-2 pt-2">
-                @foreach (var day in trends.TakeLast(10))
-                {
-                    double pct = (double)day.TotalTokens / maxTokens * 100;
-                    <div class="flex items-center gap-3 text-xs font-mono">
-                        <span class="w-20 text-[11px] text-muted-foreground shrink-0 truncate">@day.Date</span>
-                        <div class="flex-1 bg-muted/60 rounded-md h-5 p-0.5 overflow-hidden flex items-center">
-                            <div class="bg-primary/80 hover:bg-primary h-full rounded transition-all duration-300 flex items-center px-2 text-[10px] text-white font-medium truncate"
-                                 style="width: @Math.Max(5, pct)%">
-                                @FormatTokens(day.TotalTokens)
-                            </div>
-                        </div>
-                        <span class="w-16 text-right text-[11px] text-foreground shrink-0">@day.RequestCount 次</span>
-                        <span class="w-20 text-right text-[11px] text-primary shrink-0">$@day.TotalCost</span>
-                    </div>
-                }
-            </div>
-        }
-    </div>
+    <!-- 1:1 原版面积图走势组件 -->
+    <UsageTrendChart Trends="@trends" RangeLabel="@GetRangeLabel()" IsLoading="@isLoading" />
 
     <!-- Model Stats & Provider Stats Dual Tables -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -216,13 +181,13 @@
                         }
                         else
                         {
-                            @foreach (var m in modelStats.Take(8))
+                            @foreach (var m in modelStats.Take(6))
                             {
                                 <tr class="hover:bg-muted/30">
-                                    <td class="py-2 font-sans font-medium text-foreground truncate max-w-[140px]" title="@m.Model">@m.Model</td>
-                                    <td class="py-2 text-right">@m.RequestCount.ToString("N0")</td>
-                                    <td class="py-2 text-right text-primary">@FormatTokens(m.TotalTokens)</td>
-                                    <td class="py-2 text-right text-foreground">$@m.TotalCost</td>
+                                    <td class="py-2 font-medium text-foreground truncate max-w-[140px]" title="@m.Model">@m.Model</td>
+                                    <td class="py-2 text-right text-muted-foreground">@m.RequestCount</td>
+                                    <td class="py-2 text-right text-foreground">@FormatTokens(m.TotalTokens)</td>
+                                    <td class="py-2 text-right font-semibold text-primary">$@m.TotalCost</td>
                                 </tr>
                             }
                         }
@@ -234,8 +199,8 @@
         <!-- Provider Stats Table -->
         <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between border-b border-border/40 pb-2.5">
-                <h3 class="font-bold text-xs text-foreground">服务商调用排行 (Provider Stats)</h3>
-                <span class="text-[10px] text-muted-foreground">各端点活跃度</span>
+                <h3 class="font-bold text-xs text-foreground">服务商消耗排行 (Provider Stats)</h3>
+                <span class="text-[10px] text-muted-foreground">活跃通道</span>
             </div>
 
             <div class="overflow-x-auto text-xs flex-1">
@@ -243,10 +208,10 @@
                     <thead class="text-muted-foreground text-[10px] border-b border-border/30">
                         <tr>
                             <th class="pb-2 font-medium">服务商</th>
-                            <th class="pb-2 font-medium text-right">调用数</th>
+                            <th class="pb-2 font-medium text-right">请求数</th>
                             <th class="pb-2 font-medium text-right">总 Tokens</th>
-                            <th class="pb-2 font-medium text-right">均耗时</th>
                             <th class="pb-2 font-medium text-right">成功率</th>
+                            <th class="pb-2 font-medium text-right">总费用</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border/20 font-mono text-[11px]">
@@ -254,23 +219,20 @@
                         {
                             <tr>
                                 <td colspan="5" class="py-6 text-center text-muted-foreground font-sans text-xs">
-                                    暂无服务商调用数据
+                                    暂无服务商消耗记录
                                 </td>
                             </tr>
                         }
                         else
                         {
-                            @foreach (var p in providerStats.Take(8))
+                            @foreach (var p in providerStats.Take(6))
                             {
                                 <tr class="hover:bg-muted/30">
-                                    <td class="py-2 font-sans font-medium text-foreground flex items-center gap-1.5 truncate max-w-[120px]">
-                                        <ProviderIcon Name="@p.ProviderName" Size="14" />
-                                        <span class="truncate">@p.ProviderName</span>
-                                    </td>
-                                    <td class="py-2 text-right">@p.RequestCount.ToString("N0")</td>
-                                    <td class="py-2 text-right text-primary">@FormatTokens(p.TotalTokens)</td>
-                                    <td class="py-2 text-right text-muted-foreground">@(p.AvgLatencyMs)ms</td>
+                                    <td class="py-2 font-medium text-foreground truncate max-w-[120px]">@(string.IsNullOrEmpty(p.ProviderName) ? p.ProviderId : p.ProviderName)</td>
+                                    <td class="py-2 text-right text-muted-foreground">@p.RequestCount</td>
+                                    <td class="py-2 text-right text-foreground">@FormatTokens(p.TotalTokens)</td>
                                     <td class="py-2 text-right text-emerald-500">@((p.SuccessRate * 100).ToString("F0"))%</td>
+                                    <td class="py-2 text-right font-semibold text-primary">$@p.TotalCost</td>
                                 </tr>
                             }
                         }
@@ -280,12 +242,12 @@
         </div>
     </div>
 
-    <!-- Live Request Stream Logs -->
+    <!-- Request Logs Detail Stream -->
     <div class="bg-card border border-border/60 p-5 rounded-xl space-y-3 shadow-sm">
         <div class="flex items-center justify-between border-b border-border/40 pb-2.5">
             <h3 class="font-bold text-xs text-foreground flex items-center gap-2">
-                <span>实时请求调用流水日志</span>
-                <span class="text-[10px] font-normal text-muted-foreground">(最近 15 笔调用流水)</span>
+                <span>实时请求流水记录 (Recent Logs)</span>
+                <span class="text-[10px] font-normal text-muted-foreground">最新 15 条代理分发详情</span>
             </h3>
         </div>
 
@@ -295,11 +257,11 @@
                     <tr>
                         <th class="pb-2 font-medium">时间</th>
                         <th class="pb-2 font-medium">应用 / 服务商</th>
-                        <th class="pb-2 font-medium">请求模型</th>
-                        <th class="pb-2 font-medium text-center">状态码</th>
-                        <th class="pb-2 font-medium text-right">输入 / 输出 / 缓存 Tokens</th>
+                        <th class="pb-2 font-medium">模型</th>
+                        <th class="pb-2 font-medium text-center">状态</th>
+                        <th class="pb-2 font-medium text-right">Tokens (入/出/读)</th>
                         <th class="pb-2 font-medium text-right">耗时</th>
-                        <th class="pb-2 font-medium text-right">费用</th>
+                        <th class="pb-2 font-medium text-right">费用 (USD)</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border/20 font-mono text-[11px]">
@@ -373,6 +335,19 @@
         await ReloadAllAsync();
     }
 
+    private string GetRangeLabel()
+    {
+        var now = DateTime.Now;
+        return selectedRange switch
+        {
+            "today" => $"今天 ({now:yyyy-MM-dd})",
+            "7d" => $"近 7 天 ({now.AddDays(-7):MM-dd} ~ {now:MM-dd})",
+            "30d" => $"近 30 天 ({now.AddDays(-30):MM-dd} ~ {now:MM-dd})",
+            "all" => "全部历史记录",
+            _ => selectedRange
+        };
+    }
+
     private (long? start, long? end) GetTimestampsForRange(string range)
     {
         var now = DateTimeOffset.UtcNow;
@@ -426,4 +401,3 @@
         return tokens.ToString("N0");
     }
 }
-

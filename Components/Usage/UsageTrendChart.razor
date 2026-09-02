@@ -1,0 +1,565 @@
+@using System.Globalization
+@using CCSwitch.Wpf.Services
+
+<div class="rounded-xl border border-border/60 bg-card p-5 space-y-4 shadow-sm relative select-none">
+    <div class="flex items-center justify-between pb-1 border-b border-border/30">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"></path>
+                <path d="m19 9-5 5-4-4-3 3"></path>
+            </svg>
+            <h3 class="font-bold text-sm text-foreground">使用趋势</h3>
+            <span class="text-[11px] font-normal text-muted-foreground">Token 吞吐与成本多维面积走势</span>
+        </div>
+        <span class="text-xs text-muted-foreground font-mono bg-muted/60 px-2.5 py-0.5 rounded-full border border-border/40">
+            @RangeLabel
+        </span>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="h-[320px] w-full flex flex-col items-center justify-center gap-2 text-muted-foreground/60">
+            <svg class="w-8 h-8 animate-spin text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                <path d="M16 21h5v-5"></path>
+            </svg>
+            <span class="text-xs">正在加载趋势数据...</span>
+        </div>
+    }
+    else if (Trends == null || !Trends.Any())
+    {
+        <div class="h-[320px] w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <svg class="w-10 h-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                <line x1="3" x2="21" y1="9" y2="9"></line>
+                <line x1="9" x2="9" y1="21" y2="9"></line>
+            </svg>
+            <span class="text-xs">当前时间区间暂无趋势记录</span>
+        </div>
+    }
+    else
+    {
+        var chartData = CalculateChartData();
+
+        <div class="relative w-full h-[320px]" @onmouseleave="ClearHover">
+            <svg class="w-full h-full overflow-visible" viewBox="0 0 1000 320" preserveAspectRatio="none">
+                <defs>
+                    <!-- Linear Gradients for 4 token types -->
+                    <linearGradient id="colorInput" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stop-color="#3b82f6" stop-opacity="0.35" />
+                        <stop offset="95%" stop-color="#3b82f6" stop-opacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="colorOutput" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stop-color="#22c55e" stop-opacity="0.35" />
+                        <stop offset="95%" stop-color="#22c55e" stop-opacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="colorCacheCreation" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stop-color="#f97316" stop-opacity="0.35" />
+                        <stop offset="95%" stop-color="#f97316" stop-opacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="colorCacheRead" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stop-color="#a855f7" stop-opacity="0.35" />
+                        <stop offset="95%" stop-color="#a855f7" stop-opacity="0.0" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Gridlines & Y-Axis ticks -->
+                @for (int i = 0; i <= 4; i++)
+                {
+                    double y = chartData.PadTop + i * (chartData.PlotHeight / 4.0);
+                    double tokenVal = chartData.MaxTokens * (4 - i) / 4.0;
+                    double costVal = chartData.MaxCost * (4 - i) / 4.0;
+
+                    <!-- Horizontal Gridline -->
+                    <line x1="@chartData.PadLeft.ToString("F1", CultureInfo.InvariantCulture)"
+                          y1="@y.ToString("F1", CultureInfo.InvariantCulture)"
+                          x2="@((1000 - chartData.PadRight).ToString("F1", CultureInfo.InvariantCulture))"
+                          y2="@y.ToString("F1", CultureInfo.InvariantCulture)"
+                          stroke="currentColor" stroke-dasharray="3 3" stroke-width="1" class="text-border/60" />
+
+                    <!-- Left Y-Axis Tick (Tokens) -->
+                    @((MarkupString)$"<text x=\"{(chartData.PadLeft - 8).ToString("F1", CultureInfo.InvariantCulture)}\" y=\"{(y + 4).ToString("F1", CultureInfo.InvariantCulture)}\" text-anchor=\"end\" font-size=\"11\" class=\"fill-muted-foreground font-mono\">{FormatTokenTick(tokenVal)}</text>")
+
+                    <!-- Right Y-Axis Tick (Cost) -->
+                    @((MarkupString)$"<text x=\"{(1000 - chartData.PadRight + 8).ToString("F1", CultureInfo.InvariantCulture)}\" y=\"{(y + 4).ToString("F1", CultureInfo.InvariantCulture)}\" text-anchor=\"start\" font-size=\"11\" class=\"fill-muted-foreground font-mono\">{FormatCostTick(costVal)}</text>")
+                }
+
+                <!-- X-Axis Labels -->
+                @foreach (var tick in chartData.XTicks)
+                {
+                    @((MarkupString)$"<text x=\"{tick.X.ToString("F1", CultureInfo.InvariantCulture)}\" y=\"{(chartData.BottomY + 22).ToString("F1", CultureInfo.InvariantCulture)}\" text-anchor=\"middle\" font-size=\"11\" class=\"fill-muted-foreground font-mono\">{tick.Label}</text>")
+                }
+
+                <!-- 1. Cache Read Area & Stroke -->
+                @if (!string.IsNullOrEmpty(chartData.CacheReadAreaPath))
+                {
+                    <path d="@chartData.CacheReadAreaPath" fill="url(#colorCacheRead)" />
+                    <path d="@chartData.CacheReadLinePath" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                }
+
+                <!-- 2. Cache Creation Area & Stroke -->
+                @if (!string.IsNullOrEmpty(chartData.CacheCreationAreaPath))
+                {
+                    <path d="@chartData.CacheCreationAreaPath" fill="url(#colorCacheCreation)" />
+                    <path d="@chartData.CacheCreationLinePath" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                }
+
+                <!-- 3. Output Tokens Area & Stroke -->
+                @if (!string.IsNullOrEmpty(chartData.OutputAreaPath))
+                {
+                    <path d="@chartData.OutputAreaPath" fill="url(#colorOutput)" />
+                    <path d="@chartData.OutputLinePath" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                }
+
+                <!-- 4. Input Tokens Area & Stroke -->
+                @if (!string.IsNullOrEmpty(chartData.InputAreaPath))
+                {
+                    <path d="@chartData.InputAreaPath" fill="url(#colorInput)" />
+                    <path d="@chartData.InputLinePath" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                }
+
+                <!-- 5. Cost Dashed Line -->
+                @if (!string.IsNullOrEmpty(chartData.CostLinePath))
+                {
+                    <path d="@chartData.CostLinePath" fill="none" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round" stroke-linejoin="round" />
+                }
+
+                <!-- Interactive Crosshair & Highlight Points -->
+                @if (hoverIndex.HasValue && hoverIndex.Value >= 0 && hoverIndex.Value < chartData.Points.Count)
+                {
+                    var pt = chartData.Points[hoverIndex.Value];
+
+                    <!-- Vertical Crosshair Line -->
+                    <line x1="@pt.X.ToString("F1", CultureInfo.InvariantCulture)"
+                          y1="@chartData.PadTop.ToString("F1", CultureInfo.InvariantCulture)"
+                          x2="@pt.X.ToString("F1", CultureInfo.InvariantCulture)"
+                          y2="@chartData.BottomY.ToString("F1", CultureInfo.InvariantCulture)"
+                          stroke="currentColor" stroke-dasharray="2 2" stroke-width="1.5" class="text-foreground/60" />
+
+                    <!-- Highlight Circles -->
+                    <circle cx="@pt.X.ToString("F1", CultureInfo.InvariantCulture)" cy="@pt.InputY.ToString("F1", CultureInfo.InvariantCulture)" r="4.5" fill="#3b82f6" stroke="#ffffff" stroke-width="2" />
+                    <circle cx="@pt.X.ToString("F1", CultureInfo.InvariantCulture)" cy="@pt.OutputY.ToString("F1", CultureInfo.InvariantCulture)" r="4.5" fill="#22c55e" stroke="#ffffff" stroke-width="2" />
+                    <circle cx="@pt.X.ToString("F1", CultureInfo.InvariantCulture)" cy="@pt.CacheCreationY.ToString("F1", CultureInfo.InvariantCulture)" r="4.5" fill="#f97316" stroke="#ffffff" stroke-width="2" />
+                    <circle cx="@pt.X.ToString("F1", CultureInfo.InvariantCulture)" cy="@pt.CacheReadY.ToString("F1", CultureInfo.InvariantCulture)" r="4.5" fill="#a855f7" stroke="#ffffff" stroke-width="2" />
+                    <circle cx="@pt.X.ToString("F1", CultureInfo.InvariantCulture)" cy="@pt.CostY.ToString("F1", CultureInfo.InvariantCulture)" r="4.5" fill="#f43f5e" stroke="#ffffff" stroke-width="2" />
+                }
+
+                <!-- Transparent Interactive Hit Zones for Hover -->
+                @for (int i = 0; i < chartData.Points.Count; i++)
+                {
+                    int index = i;
+                    var pt = chartData.Points[i];
+                    double hitWidth = chartData.Points.Count > 1
+                        ? (chartData.PlotWidth / (chartData.Points.Count - 1))
+                        : chartData.PlotWidth;
+                    double hitX = pt.X - hitWidth / 2.0;
+
+                    <rect x="@Math.Max(0, hitX).ToString("F1", CultureInfo.InvariantCulture)"
+                          y="0"
+                          width="@hitWidth.ToString("F1", CultureInfo.InvariantCulture)"
+                          height="320"
+                          fill="transparent"
+                          class="cursor-crosshair"
+                          @onmouseenter="() => SetHover(index)" />
+                }
+            </svg>
+
+            <!-- Floating Glassmorphism Tooltip -->
+            @if (hoverIndex.HasValue && hoverIndex.Value >= 0 && hoverIndex.Value < chartData.Points.Count)
+            {
+                var pt = chartData.Points[hoverIndex.Value];
+                bool isRightSide = pt.X > 500;
+                string posStyle = isRightSide
+                    ? $"right: calc({((1000.0 - pt.X) / 10.0).ToString("F1", CultureInfo.InvariantCulture)}% + 16px); top: 16px;"
+                    : $"left: calc({(pt.X / 10.0).ToString("F1", CultureInfo.InvariantCulture)}% + 16px); top: 16px;";
+
+                <div class="absolute pointer-events-none z-30 rounded-xl border border-border/80 bg-background/95 p-3.5 shadow-2xl backdrop-blur-md text-xs font-sans space-y-2 min-w-[190px] animate-in fade-in zoom-in-95 duration-100"
+                     style="@posStyle">
+                    <div class="font-semibold text-foreground border-b border-border/40 pb-1.5 flex items-center justify-between text-[11px]">
+                        <span class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>@pt.FullDateLabel</span>
+                        </span>
+                        <span class="text-muted-foreground font-mono text-[10px]">#@(hoverIndex.Value + 1)</span>
+                    </div>
+
+                    <div class="space-y-1 font-mono text-[11px]">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-1.5 text-blue-500 font-sans">
+                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span>输入 Tokens:</span>
+                            </div>
+                            <span class="font-bold text-foreground">@pt.InputTokens.ToString("N0")</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-1.5 text-emerald-500 font-sans">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span>输出 Tokens:</span>
+                            </div>
+                            <span class="font-bold text-foreground">@pt.OutputTokens.ToString("N0")</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-1.5 text-orange-500 font-sans">
+                                <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                <span>缓存写入:</span>
+                            </div>
+                            <span class="font-bold text-foreground">@pt.CacheCreationTokens.ToString("N0")</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-1.5 text-purple-500 font-sans">
+                                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                <span>缓存命中:</span>
+                            </div>
+                            <span class="font-bold text-foreground">@pt.CacheReadTokens.ToString("N0")</span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4 pt-1.5 border-t border-border/40">
+                            <div class="flex items-center gap-1.5 text-rose-500 font-sans font-medium">
+                                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                <span>预估成本:</span>
+                            </div>
+                            <span class="font-bold text-rose-500">$@pt.Cost.ToString("F6")</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Legend (Matching Recharts / 原版 cc-switch) -->
+        <div class="flex items-center justify-center gap-5 flex-wrap pt-2 border-t border-border/30 text-xs text-muted-foreground">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+                <span class="hover:text-foreground transition-colors">输入 Tokens</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>
+                <span class="hover:text-foreground transition-colors">输出 Tokens</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-orange-500"></span>
+                <span class="hover:text-foreground transition-colors">缓存创建</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-purple-500"></span>
+                <span class="hover:text-foreground transition-colors">缓存命中</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-3 h-0.5 border-t-2 border-dashed border-rose-500"></span>
+                <span class="hover:text-foreground transition-colors text-rose-500 font-medium">成本 (USD)</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<DailyStatsDto>? Trends { get; set; }
+    [Parameter] public string RangeLabel { get; set; } = "";
+    [Parameter] public bool IsLoading { get; set; } = false;
+
+    private int? hoverIndex = null;
+
+    private void SetHover(int idx)
+    {
+        hoverIndex = idx;
+    }
+
+    private void ClearHover()
+    {
+        hoverIndex = null;
+    }
+
+    private class ChartPoint
+    {
+        public double X { get; set; }
+        public double InputY { get; set; }
+        public double OutputY { get; set; }
+        public double CacheCreationY { get; set; }
+        public double CacheReadY { get; set; }
+        public double CostY { get; set; }
+
+        public ulong InputTokens { get; set; }
+        public ulong OutputTokens { get; set; }
+        public ulong CacheCreationTokens { get; set; }
+        public ulong CacheReadTokens { get; set; }
+        public double Cost { get; set; }
+
+        public string DateLabel { get; set; } = "";
+        public string FullDateLabel { get; set; } = "";
+    }
+
+    private class XTick
+    {
+        public double X { get; set; }
+        public string Label { get; set; } = "";
+    }
+
+    private class ChartData
+    {
+        public double PadLeft { get; set; } = 55.0;
+        public double PadRight { get; set; } = 55.0;
+        public double PadTop { get; set; } = 20.0;
+        public double PadBottom { get; set; } = 40.0;
+        public double PlotWidth => 1000.0 - PadLeft - PadRight;
+        public double PlotHeight => 320.0 - PadTop - PadBottom;
+        public double BottomY => PadTop + PlotHeight;
+
+        public double MaxTokens { get; set; } = 100;
+        public double MaxCost { get; set; } = 0.01;
+
+        public List<ChartPoint> Points { get; set; } = new();
+        public List<XTick> XTicks { get; set; } = new();
+
+        public string InputAreaPath { get; set; } = "";
+        public string InputLinePath { get; set; } = "";
+        public string OutputAreaPath { get; set; } = "";
+        public string OutputLinePath { get; set; } = "";
+        public string CacheCreationAreaPath { get; set; } = "";
+        public string CacheCreationLinePath { get; set; } = "";
+        public string CacheReadAreaPath { get; set; } = "";
+        public string CacheReadLinePath { get; set; } = "";
+        public string CostLinePath { get; set; } = "";
+    }
+
+    private ChartData CalculateChartData()
+    {
+        var data = new ChartData();
+        if (Trends == null || !Trends.Any()) return data;
+
+        int n = Trends.Count;
+
+        ulong rawMaxTokens = 0;
+        double rawMaxCost = 0.0;
+
+        foreach (var stat in Trends)
+        {
+            if (stat.TotalInputTokens > rawMaxTokens) rawMaxTokens = stat.TotalInputTokens;
+            if (stat.TotalOutputTokens > rawMaxTokens) rawMaxTokens = stat.TotalOutputTokens;
+            if (stat.TotalCacheCreationTokens > rawMaxTokens) rawMaxTokens = stat.TotalCacheCreationTokens;
+            if (stat.TotalCacheReadTokens > rawMaxTokens) rawMaxTokens = stat.TotalCacheReadTokens;
+
+            if (double.TryParse(stat.TotalCost, CultureInfo.InvariantCulture, out var c) && c > rawMaxCost)
+            {
+                rawMaxCost = c;
+            }
+        }
+
+        data.MaxTokens = GetNiceMaxTokens(rawMaxTokens);
+        data.MaxCost = GetNiceMaxCost(rawMaxCost);
+
+        var inputCoords = new List<(double X, double Y)>(n);
+        var outputCoords = new List<(double X, double Y)>(n);
+        var cacheCreationCoords = new List<(double X, double Y)>(n);
+        var cacheReadCoords = new List<(double X, double Y)>(n);
+        var costCoords = new List<(double X, double Y)>(n);
+
+        for (int i = 0; i < n; i++)
+        {
+            var stat = Trends[i];
+            double x = n > 1 ? (data.PadLeft + i * (data.PlotWidth / (n - 1))) : (data.PadLeft + data.PlotWidth / 2.0);
+
+            double inputY = data.BottomY - (stat.TotalInputTokens / data.MaxTokens) * data.PlotHeight;
+            double outputY = data.BottomY - (stat.TotalOutputTokens / data.MaxTokens) * data.PlotHeight;
+            double cacheCreationY = data.BottomY - (stat.TotalCacheCreationTokens / data.MaxTokens) * data.PlotHeight;
+            double cacheReadY = data.BottomY - (stat.TotalCacheReadTokens / data.MaxTokens) * data.PlotHeight;
+
+            double costVal = double.TryParse(stat.TotalCost, CultureInfo.InvariantCulture, out var c) ? c : 0.0;
+            double costY = data.BottomY - (costVal / data.MaxCost) * data.PlotHeight;
+
+            inputCoords.Add((x, inputY));
+            outputCoords.Add((x, outputY));
+            cacheCreationCoords.Add((x, cacheCreationY));
+            cacheReadCoords.Add((x, cacheReadY));
+            costCoords.Add((x, costY));
+
+            var (shortLabel, fullLabel) = FormatDateLabels(stat.Date);
+
+            data.Points.Add(new ChartPoint
+            {
+                X = x,
+                InputY = inputY,
+                OutputY = outputY,
+                CacheCreationY = cacheCreationY,
+                CacheReadY = cacheReadY,
+                CostY = costY,
+                InputTokens = stat.TotalInputTokens,
+                OutputTokens = stat.TotalOutputTokens,
+                CacheCreationTokens = stat.TotalCacheCreationTokens,
+                CacheReadTokens = stat.TotalCacheReadTokens,
+                Cost = costVal,
+                DateLabel = shortLabel,
+                FullDateLabel = fullLabel
+            });
+        }
+
+        // Generate smooth Spline Paths
+        data.InputAreaPath = BuildAreaPath(inputCoords, data.BottomY, data.PadTop);
+        data.InputLinePath = BuildLinePath(inputCoords, data.PadTop, data.BottomY);
+
+        data.OutputAreaPath = BuildAreaPath(outputCoords, data.BottomY, data.PadTop);
+        data.OutputLinePath = BuildLinePath(outputCoords, data.PadTop, data.BottomY);
+
+        data.CacheCreationAreaPath = BuildAreaPath(cacheCreationCoords, data.BottomY, data.PadTop);
+        data.CacheCreationLinePath = BuildLinePath(cacheCreationCoords, data.PadTop, data.BottomY);
+
+        data.CacheReadAreaPath = BuildAreaPath(cacheReadCoords, data.BottomY, data.PadTop);
+        data.CacheReadLinePath = BuildLinePath(cacheReadCoords, data.PadTop, data.BottomY);
+
+        data.CostLinePath = BuildLinePath(costCoords, data.PadTop, data.BottomY);
+
+        // Compute X Axis Ticks (pick up to 7 evenly spaced ticks)
+        int tickStep = Math.Max(1, (int)Math.Ceiling(n / 6.0));
+        for (int i = 0; i < n; i += tickStep)
+        {
+            data.XTicks.Add(new XTick
+            {
+                X = data.Points[i].X,
+                Label = data.Points[i].DateLabel
+            });
+        }
+        if (n > 1 && (n - 1) % tickStep != 0)
+        {
+            data.XTicks.Add(new XTick
+            {
+                X = data.Points[n - 1].X,
+                Label = data.Points[n - 1].DateLabel
+            });
+        }
+
+        return data;
+    }
+
+    private string BuildLinePath(List<(double X, double Y)> points, double padTop, double bottomY)
+    {
+        if (points.Count == 0) return "";
+        if (points.Count == 1) return $"M {points[0].X.ToString("F1", CultureInfo.InvariantCulture)},{points[0].Y.ToString("F1", CultureInfo.InvariantCulture)}";
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"M {points[0].X.ToString("F1", CultureInfo.InvariantCulture)},{points[0].Y.ToString("F1", CultureInfo.InvariantCulture)}");
+
+        const double tension = 0.25;
+        int n = points.Count;
+
+        for (int i = 0; i < n - 1; i++)
+        {
+            var p0 = i > 0 ? points[i - 1] : points[i];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = i + 2 < n ? points[i + 2] : p2;
+
+            double cp1X = p1.X + (p2.X - p0.X) * tension;
+            double cp1Y = p1.Y + (p2.Y - p0.Y) * tension;
+            double cp2X = p2.X - (p3.X - p1.X) * tension;
+            double cp2Y = p2.Y - (p3.Y - p1.Y) * tension;
+
+            cp1Y = Math.Clamp(cp1Y, padTop, bottomY);
+            cp2Y = Math.Clamp(cp2Y, padTop, bottomY);
+
+            sb.Append($" C {cp1X.ToString("F1", CultureInfo.InvariantCulture)},{cp1Y.ToString("F1", CultureInfo.InvariantCulture)} {cp2X.ToString("F1", CultureInfo.InvariantCulture)},{cp2Y.ToString("F1", CultureInfo.InvariantCulture)} {p2.X.ToString("F1", CultureInfo.InvariantCulture)},{p2.Y.ToString("F1", CultureInfo.InvariantCulture)}");
+        }
+
+        return sb.ToString();
+    }
+
+    private string BuildAreaPath(List<(double X, double Y)> points, double bottomY, double padTop)
+    {
+        if (points.Count == 0) return "";
+        string linePath = BuildLinePath(points, padTop, bottomY);
+        int firstSpace = linePath.IndexOf(' ');
+        string curvePart = firstSpace >= 0 ? linePath.Substring(firstSpace + 1) : "";
+
+        string x0 = points[0].X.ToString("F1", CultureInfo.InvariantCulture);
+        string y0 = points[0].Y.ToString("F1", CultureInfo.InvariantCulture);
+        string xEnd = points[^1].X.ToString("F1", CultureInfo.InvariantCulture);
+        string bY = bottomY.ToString("F1", CultureInfo.InvariantCulture);
+
+        return $"M {x0},{bY} L {x0},{y0} {curvePart} L {xEnd},{bY} Z";
+    }
+
+    private (string shortLabel, string fullLabel) FormatDateLabels(string rawDate)
+    {
+        if (DateTimeOffset.TryParse(rawDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto))
+        {
+            var local = dto.ToLocalTime();
+            if (rawDate.Contains('T') || rawDate.Contains(':'))
+            {
+                return (local.ToString("HH:mm"), local.ToString("yyyy-MM-dd HH:mm"));
+            }
+            return (local.ToString("MM-dd"), local.ToString("yyyy-MM-dd"));
+        }
+
+        if (DateTime.TryParse(rawDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+        {
+            if (rawDate.Contains('T') || rawDate.Contains(':'))
+            {
+                return (dt.ToString("HH:mm"), dt.ToString("yyyy-MM-dd HH:mm"));
+            }
+            return (dt.ToString("MM-dd"), dt.ToString("yyyy-MM-dd"));
+        }
+
+        return (rawDate, rawDate);
+    }
+
+    private double GetNiceMaxTokens(ulong rawMax)
+    {
+        if (rawMax == 0) return 1000;
+        double val = (double)rawMax * 1.15;
+
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(val)));
+        if (magnitude <= 0) magnitude = 1;
+        double norm = val / magnitude;
+
+        double factor;
+        if (norm <= 1.2) factor = 1.2;
+        else if (norm <= 1.5) factor = 1.5;
+        else if (norm <= 2.0) factor = 2.0;
+        else if (norm <= 3.0) factor = 3.0;
+        else if (norm <= 5.0) factor = 5.0;
+        else if (norm <= 7.5) factor = 7.5;
+        else factor = 10.0;
+
+        return factor * magnitude;
+    }
+
+    private double GetNiceMaxCost(double rawMax)
+    {
+        if (rawMax <= 0.0001) return 0.01;
+        double val = rawMax * 1.2;
+
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(val)));
+        if (magnitude <= 0) magnitude = 1;
+        double norm = val / magnitude;
+
+        double factor;
+        if (norm <= 1.2) factor = 1.2;
+        else if (norm <= 1.5) factor = 1.5;
+        else if (norm <= 2.0) factor = 2.0;
+        else if (norm <= 3.0) factor = 3.0;
+        else if (norm <= 5.0) factor = 5.0;
+        else factor = 10.0;
+
+        return factor * magnitude;
+    }
+
+    private string FormatTokenTick(double tokens)
+    {
+        if (tokens >= 1_000_000) return $"{(tokens / 1_000_000.0):F1}M";
+        if (tokens >= 1_000) return $"{(tokens / 1_000.0):F0}k";
+        return tokens.ToString("F0");
+    }
+
+    private string FormatCostTick(double cost)
+    {
+        if (cost >= 100) return $"${cost:F0}";
+        if (cost >= 1) return $"${cost:F2}";
+        if (cost >= 0.01) return $"${cost:F3}";
+        return $"${cost:F4}";
+    }
+}
