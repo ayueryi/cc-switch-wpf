@@ -283,56 +283,191 @@ public class UsageService
 
     public async Task<List<DailyStatsDto>> GetUsageTrendsAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
-        using var conn = _dbService.CreateConnection();
-        string freshInput = FreshInputSql();
-        string dedupFilter = EffectiveUsageLogFilter();
-        var sql = $@"
-            SELECT 
-                strftime('%Y-%m-%d', datetime(created_at, 'unixepoch', 'localtime')) AS DateStr,
-                COUNT(1) AS RequestCount,
-                COALESCE(SUM(CAST(total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
-                COALESCE(SUM({freshInput} + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS TotalTokens,
-                COALESCE(SUM({freshInput}), 0) AS TotalInputTokens,
-                COALESCE(SUM(output_tokens), 0) AS TotalOutputTokens,
-                COALESCE(SUM(cache_creation_tokens), 0) AS TotalCacheCreationTokens,
-                COALESCE(SUM(cache_read_tokens), 0) AS TotalCacheReadTokens
-            FROM proxy_request_logs
-            WHERE {dedupFilter}
-        ";
+        var nowTs = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var endTs = endDate ?? nowTs;
+        var startTs = startDate ?? (endTs - 24 * 60 * 60);
 
-        if (startDate.HasValue) sql += " AND created_at >= @startDate";
-        if (endDate.HasValue) sql += " AND created_at <= @endDate";
-        if (!string.IsNullOrEmpty(appType)) sql += " AND app_type = @appType";
-        if (!string.IsNullOrEmpty(providerName)) sql += " AND provider_id = @providerName";
-        if (!string.IsNullOrEmpty(model)) sql += " AND (model = @model OR pricing_model = @model)";
-
-        sql += " GROUP BY DateStr ORDER BY DateStr ASC";
-
-        var list = new List<DailyStatsDto>();
-        try
+        if (startTs >= endTs)
         {
-            var rows = await conn.QueryAsync(sql, new { startDate, endDate, appType, providerName, model });
-            foreach (var r in rows)
+            startTs = endTs - 24 * 60 * 60;
+        }
+
+        var duration = endTs - startTs;
+        if (duration <= 24 * 60 * 60)
+        {
+            long bucketSeconds = 60 * 60;
+            long bucketCount = duration <= 0 ? 1 : (duration + bucketSeconds - 1) / bucketSeconds;
+            if (bucketCount < 1) bucketCount = 1;
+
+            using var conn = _dbService.CreateConnection();
+            string freshInput = FreshInputSql("l");
+            string dedupFilter = EffectiveUsageLogFilter("l");
+            var sql = $@"
+                SELECT 
+                    CAST((l.created_at - @startTs) / @bucketSeconds AS INTEGER) AS BucketIdx,
+                    COUNT(1) AS RequestCount,
+                    COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
+                    COALESCE(SUM({freshInput} + l.output_tokens + l.cache_creation_tokens + l.cache_read_tokens), 0) AS TotalTokens,
+                    COALESCE(SUM({freshInput}), 0) AS TotalInputTokens,
+                    COALESCE(SUM(l.output_tokens), 0) AS TotalOutputTokens,
+                    COALESCE(SUM(l.cache_creation_tokens), 0) AS TotalCacheCreationTokens,
+                    COALESCE(SUM(l.cache_read_tokens), 0) AS TotalCacheReadTokens
+                FROM proxy_request_logs l
+                LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
+                WHERE l.created_at >= @startTs AND l.created_at <= @endTs AND {dedupFilter}
+            ";
+
+            if (!string.IsNullOrEmpty(appType)) sql += " AND l.app_type = @appType";
+            if (!string.IsNullOrEmpty(providerName)) sql += " AND (l.provider_id = @providerName OR p.name = @providerName)";
+            if (!string.IsNullOrEmpty(model)) sql += " AND (l.model = @model OR l.pricing_model = @model)";
+
+            sql += " GROUP BY BucketIdx ORDER BY BucketIdx ASC";
+
+            var map = new Dictionary<long, DailyStatsDto>();
+            try
             {
-                list.Add(new DailyStatsDto
+                var rows = await conn.QueryAsync(sql, new { startTs, endTs, bucketSeconds, appType, providerName, model });
+                foreach (var r in rows)
                 {
-                    Date = (string)(r.DateStr ?? ""),
-                    RequestCount = r.RequestCount != null ? (ulong)(long)r.RequestCount : 0,
-                    TotalCost = r.TotalCostNum != null ? ((double)r.TotalCostNum).ToString("F4") : "0.00",
-                    TotalTokens = r.TotalTokens != null ? (ulong)(long)r.TotalTokens : 0,
-                    TotalInputTokens = r.TotalInputTokens != null ? (ulong)(long)r.TotalInputTokens : 0,
-                    TotalOutputTokens = r.TotalOutputTokens != null ? (ulong)(long)r.TotalOutputTokens : 0,
-                    TotalCacheCreationTokens = r.TotalCacheCreationTokens != null ? (ulong)(long)r.TotalCacheCreationTokens : 0,
-                    TotalCacheReadTokens = r.TotalCacheReadTokens != null ? (ulong)(long)r.TotalCacheReadTokens : 0
-                });
+                    if (r.BucketIdx != null)
+                    {
+                        long bIdx = (long)r.BucketIdx;
+                        if (bIdx < 0) continue;
+                        if (bIdx >= bucketCount) bIdx = bucketCount - 1;
+                        map[bIdx] = new DailyStatsDto
+                        {
+                            RequestCount = r.RequestCount != null ? (ulong)(long)r.RequestCount : 0,
+                            TotalCost = r.TotalCostNum != null ? ((double)r.TotalCostNum).ToString("F6") : "0.000000",
+                            TotalTokens = r.TotalTokens != null ? (ulong)(long)r.TotalTokens : 0,
+                            TotalInputTokens = r.TotalInputTokens != null ? (ulong)(long)r.TotalInputTokens : 0,
+                            TotalOutputTokens = r.TotalOutputTokens != null ? (ulong)(long)r.TotalOutputTokens : 0,
+                            TotalCacheCreationTokens = r.TotalCacheCreationTokens != null ? (ulong)(long)r.TotalCacheCreationTokens : 0,
+                            TotalCacheReadTokens = r.TotalCacheReadTokens != null ? (ulong)(long)r.TotalCacheReadTokens : 0
+                        };
+                    }
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[UsageService] GetUsageTrends failed: {ex.Message}");
-        }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UsageService] GetUsageTrends hourly failed: {ex.Message}");
+            }
 
-        return list;
+            var stats = new List<DailyStatsDto>((int)bucketCount);
+            for (long i = 0; i < bucketCount; i++)
+            {
+                long bucketStartTs = startTs + i * bucketSeconds;
+                var bucketStart = DateTimeOffset.FromUnixTimeSeconds(bucketStartTs).ToLocalTime();
+                string dateStr = bucketStart.ToString("yyyy-MM-ddTHH:mm:sszzz");
+
+                if (map.TryGetValue(i, out var stat))
+                {
+                    stat.Date = dateStr;
+                    stats.Add(stat);
+                }
+                else
+                {
+                    stats.Add(new DailyStatsDto
+                    {
+                        Date = dateStr,
+                        RequestCount = 0,
+                        TotalCost = "0.000000",
+                        TotalTokens = 0,
+                        TotalInputTokens = 0,
+                        TotalOutputTokens = 0,
+                        TotalCacheCreationTokens = 0,
+                        TotalCacheReadTokens = 0
+                    });
+                }
+            }
+
+            return stats;
+        }
+        else
+        {
+            var startLocal = DateTimeOffset.FromUnixTimeSeconds(startTs).ToLocalTime().Date;
+            var endLocal = DateTimeOffset.FromUnixTimeSeconds(endTs).ToLocalTime().Date;
+            int dayCount = (int)(endLocal - startLocal).TotalDays + 1;
+            if (dayCount < 1) dayCount = 1;
+
+            using var conn = _dbService.CreateConnection();
+            string freshInput = FreshInputSql("l");
+            string dedupFilter = EffectiveUsageLogFilter("l");
+            var sql = $@"
+                SELECT 
+                    strftime('%Y-%m-%d', datetime(l.created_at, 'unixepoch', 'localtime')) AS DateStr,
+                    COUNT(1) AS RequestCount,
+                    COALESCE(SUM(CAST(l.total_cost_usd AS REAL)), 0.0) AS TotalCostNum,
+                    COALESCE(SUM({freshInput} + l.output_tokens + l.cache_creation_tokens + l.cache_read_tokens), 0) AS TotalTokens,
+                    COALESCE(SUM({freshInput}), 0) AS TotalInputTokens,
+                    COALESCE(SUM(l.output_tokens), 0) AS TotalOutputTokens,
+                    COALESCE(SUM(cache_creation_tokens), 0) AS TotalCacheCreationTokens,
+                    COALESCE(SUM(cache_read_tokens), 0) AS TotalCacheReadTokens
+                FROM proxy_request_logs l
+                LEFT JOIN providers p ON l.provider_id = p.id AND l.app_type = p.app_type
+                WHERE l.created_at >= @startTs AND l.created_at <= @endTs AND {dedupFilter}
+            ";
+
+            if (!string.IsNullOrEmpty(appType)) sql += " AND l.app_type = @appType";
+            if (!string.IsNullOrEmpty(providerName)) sql += " AND (l.provider_id = @providerName OR p.name = @providerName)";
+            if (!string.IsNullOrEmpty(model)) sql += " AND (l.model = @model OR l.pricing_model = @model)";
+
+            sql += " GROUP BY DateStr ORDER BY DateStr ASC";
+
+            var dayMap = new Dictionary<string, DailyStatsDto>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var rows = await conn.QueryAsync(sql, new { startTs, endTs, appType, providerName, model });
+                foreach (var r in rows)
+                {
+                    string dateKey = (string)(r.DateStr ?? "");
+                    if (!string.IsNullOrEmpty(dateKey))
+                    {
+                        dayMap[dateKey] = new DailyStatsDto
+                        {
+                            Date = dateKey,
+                            RequestCount = r.RequestCount != null ? (ulong)(long)r.RequestCount : 0,
+                            TotalCost = r.TotalCostNum != null ? ((double)r.TotalCostNum).ToString("F6") : "0.000000",
+                            TotalTokens = r.TotalTokens != null ? (ulong)(long)r.TotalTokens : 0,
+                            TotalInputTokens = r.TotalInputTokens != null ? (ulong)(long)r.TotalInputTokens : 0,
+                            TotalOutputTokens = r.TotalOutputTokens != null ? (ulong)(long)r.TotalOutputTokens : 0,
+                            TotalCacheCreationTokens = r.TotalCacheCreationTokens != null ? (ulong)(long)r.TotalCacheCreationTokens : 0,
+                            TotalCacheReadTokens = r.TotalCacheReadTokens != null ? (ulong)(long)r.TotalCacheReadTokens : 0
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UsageService] GetUsageTrends daily failed: {ex.Message}");
+            }
+
+            var stats = new List<DailyStatsDto>(dayCount);
+            for (int d = 0; d < dayCount; d++)
+            {
+                var currentDay = startLocal.AddDays(d);
+                string dateKey = currentDay.ToString("yyyy-MM-dd");
+                if (dayMap.TryGetValue(dateKey, out var stat))
+                {
+                    stats.Add(stat);
+                }
+                else
+                {
+                    stats.Add(new DailyStatsDto
+                    {
+                        Date = dateKey,
+                        RequestCount = 0,
+                        TotalCost = "0.000000",
+                        TotalTokens = 0,
+                        TotalInputTokens = 0,
+                        TotalOutputTokens = 0,
+                        TotalCacheCreationTokens = 0,
+                        TotalCacheReadTokens = 0
+                    });
+                }
+            }
+
+            return stats;
+        }
     }
     public async Task<List<ProviderStatsDto>> GetProviderStatsAsync(long? startDate = null, long? endDate = null, string? appType = null, string? providerName = null, string? model = null)
     {
