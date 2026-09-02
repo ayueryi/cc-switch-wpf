@@ -59,6 +59,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<WindowNativeService>();
         services.AddSingleton<ProviderStateService>();
         services.AddSingleton<McpStateService>();
+        services.AddSingleton<ToastService>();
 
         Services = services.BuildServiceProvider();
         Resources.Add("services", Services);
@@ -92,3 +93,4 @@ public partial class App : System.Windows.Application
         e.SetObserved();
     }
 }
+

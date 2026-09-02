@@ -1,6 +1,7 @@
 @inject StreamCheckService StreamCheckService
 @inject ProviderStateService ProviderState
 @inject AppStateService AppState
+@inject ToastService Toast
 
 <div class="@GetCardClass() p-4 rounded-xl transition-all duration-200 flex flex-col justify-between gap-3 group relative border">
     <!-- Card Header -->
@@ -145,10 +146,23 @@
 
     private async Task HandleSwitch()
     {
+        if (IsActive || isSwitching) return;
         isSwitching = true;
         try
         {
-            await ProviderState.SwitchProviderAsync(Provider.Id);
+            var ok = await ProviderState.SwitchProviderAsync(Provider.Id);
+            if (ok)
+            {
+                Toast.ShowSuccess("切换成功", $"已成功生效服务商: {Provider.Name}");
+            }
+            else
+            {
+                Toast.ShowError("切换失败", "无法切换到该服务商，请检查配置");
+            }
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError("切换异常", ex.Message);
         }
         finally
         {

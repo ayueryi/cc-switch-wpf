@@ -1,3 +1,4 @@
+@inject ToastService Toast
 @inject IJSRuntime JS
 
 <div class="space-y-5 select-none animate-in fade-in duration-200 pb-4">
@@ -240,12 +241,13 @@
 @code {
     private bool isCopied = false;
 
-    private async Task CopyEndpointAsync()
+        private async Task CopyEndpointAsync()
     {
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", "http://127.0.0.1:17890");
             isCopied = true;
+            Toast.ShowSuccess("复制成功", "本地代理网关端点已复制到剪贴板");
             StateHasChanged();
 
             _ = Task.Run(async () =>
@@ -257,7 +259,9 @@
         }
         catch (Exception ex)
         {
+            Toast.ShowError("复制失败", ex.Message);
             System.Diagnostics.Debug.WriteLine($"[AboutSection] Copy failed: {ex.Message}");
         }
     }
 }
+

@@ -13,6 +13,9 @@
     <main class="flex-1 overflow-hidden relative flex flex-col bg-background">
         @(ChildContent ?? Body)
     </main>
+
+    <!-- Global Toast Notifications -->
+    <ToastContainer />
 </div>
 
 @code {
@@ -66,3 +69,4 @@
         WindowService.OnWindowStateChanged -= HandleStateChanged;
     }
 }
+

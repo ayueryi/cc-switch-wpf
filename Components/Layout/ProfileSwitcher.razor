@@ -1,5 +1,6 @@
 @inject ProfileService ProfileService
 @inject AppStateService AppState
+@inject ToastService Toast
 @implements IDisposable
 
 <div class="relative inline-block text-left select-none">
@@ -150,6 +151,7 @@
         AppState.SetCurrentProfile(profile.Id, profile.Name);
         isOpen = false;
         await ProfileService.ApplyProfileAsync(profile.Id);
+        Toast.ShowInfo("环境切换", $"已生效环境配置: {profile.Name}");
     }
 
     private async Task ClearProfile()
@@ -157,6 +159,7 @@
         AppState.SetCurrentProfile(null, null);
         isOpen = false;
         await ProfileService.ClearCurrentProfileAsync();
+        Toast.ShowInfo("已清除配置", "已恢复为默认无配置模式");
     }
 
     private void OpenCreateDialog()
@@ -174,6 +177,7 @@
         isCreateOpen = false;
         await LoadProfiles();
         AppState.SetCurrentProfile(p.Id, p.Name);
+        Toast.ShowSuccess("配置创建成功", $"已保存环境快照: {p.Name}");
     }
 
     public void Dispose()

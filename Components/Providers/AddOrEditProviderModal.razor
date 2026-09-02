@@ -2,6 +2,7 @@
 @using System.Text.Json.Nodes
 @inject ProviderStateService ProviderState
 @inject AppStateService AppState
+@inject ToastService Toast
 
 <Dialog IsOpen="IsOpen"
         Title="@(ExistingProvider == null ? "添加服务商 (Add Provider)" : "编辑服务商 (Edit Provider)")"
@@ -248,9 +249,10 @@
         }
     }
 
-    private async Task HandleDeleteAsync()
+        private async Task HandleDeleteAsync()
     {
         if (ExistingProvider == null) return;
+        var deletedName = ExistingProvider.Name;
         isSaving = true;
         errorMessage = "";
         try
@@ -258,6 +260,7 @@
             var ok = await ProviderState.DeleteProviderAsync(ExistingProvider.Id);
             if (ok)
             {
+                Toast.ShowInfo("服务商已移除", $"已成功删除服务商: {deletedName}");
                 await CloseModal();
             }
             else
@@ -334,7 +337,7 @@
 
             var configElement = JsonDocument.Parse(configObj.ToJsonString()).RootElement;
 
-            if (ExistingProvider == null)
+                        if (ExistingProvider == null)
             {
                 await ProviderState.AddProviderAsync(
                     formName.Trim(),
@@ -343,6 +346,7 @@
                     formNotes.Trim(),
                     formWebsite.Trim()
                 );
+                Toast.ShowSuccess("添加成功", $"已成功添加服务商: {formName.Trim()}");
             }
             else
             {
@@ -354,6 +358,7 @@
                     formNotes.Trim(),
                     formWebsite.Trim()
                 );
+                Toast.ShowSuccess("保存成功", $"服务商 {formName.Trim()} 配置已更新");
             }
 
             await CloseModal();
@@ -368,5 +373,6 @@
         }
     }
 }
+
 
 
